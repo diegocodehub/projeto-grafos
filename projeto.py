@@ -117,3 +117,64 @@ def ler_arquivo(nome_arquivo):
         "arcos": arcos,
         "grafo": grafo
     }
+
+def estatisticas_basicas(dados):
+    return {
+        "qtd_vertices": dados["qtdVertices"],
+        "qtd_arestas": dados["qtdArestas"],
+        "qtd_arcos": dados["qtdArcos"],
+        "qtd_vertices_req": dados["qtdVerticesReq"],
+        "qtd_arestas_req": dados["qtdArestasReq"],
+        "qtd_arcos_req": dados["qtdArcosReq"]
+    }
+
+def densidade(dados):
+    n = dados["qtdVertices"]
+    a = len(dados["arestas"]) + len(dados["arcos"])
+    if n > 1:
+        return a / (n * (n - 1))
+    else: return 0
+
+def componentes_conectados(grafo):
+    n = grafo.shape[0]
+    visitado = [False] * v
+    componentesConectados = 0
+
+    # Depth-First Search
+    def dfs(v):
+        visitado[v] = True
+        for u in range(n):
+            # Considera o grafo como não-direcionado
+            if grafo[v][u] < numpy.inf or grafo[u][v] < numpy.inf and not visitado[u]:
+                dfs(u)
+
+    for v in range(n):
+        if not visitado[v]:
+            componentesConectados += 1
+            dfs(v)
+
+    return componentesConectados
+
+def graus_vertices(dados):
+    return
+
+# Floyd-Warshall 
+def fw(grafo):
+    n = grafo.shape[0]
+    distancia = grafo.copy()
+    predecessores = numpy.full((n, n), -1)
+
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                if distancia[i][j] > distancia[i][k] + distancia[k][j]:
+                    distancia[i][j] = distancia[i][k] + distancia[k][j]
+                    predecessores[i][j] = predecessores[k][j]
+
+    return distancia, predecessores
+
+def intermediacao():
+
+def caminho_medio():
+
+def diametro():
