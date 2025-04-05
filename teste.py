@@ -131,6 +131,7 @@ def componentes_conectados(grafo):
     visitado = [False] * n
     componentes = 0
 
+    # Depth-First Search
     def dfs(v):
         visitado[v] = True
         for u in range(n):
@@ -154,15 +155,20 @@ def graus_vertices(dados):
         graus.append((v, grau_entrada, grau_saida))
     return graus
 
+# Floyd-Warshall
 def fw(grafo):
     n = grafo.shape[0]
     distancia = grafo.copy()
+    predecessores = numpy.full((n, n), -1)
+    
     for k in range(n):
         for i in range(n):
             for j in range(n):
                 if distancia[i][j] > distancia[i][k] + distancia[k][j]:
                     distancia[i][j] = distancia[i][k] + distancia[k][j]
-    return distancia
+                    predecessores[i][j] = predecessores[k][j]
+                    
+    return distancia, predecessores
 
 def caminho_medio(grafo):
     d = fw(grafo)
