@@ -280,7 +280,7 @@ def calcula_intermediacao(vertices, grafo):
 
 def main():
     try:
-        nome_arquivo = input("Digite o nome do arquivo (ex: nome_arquivo.dat): ")
+        nome_arquivo = input("Digite o nome do arquivo .dat (ex: nome_arquivo.dat): ")
         dados = ler_arquivo(nome_arquivo)
         grafo = dados["grafo"]
 
