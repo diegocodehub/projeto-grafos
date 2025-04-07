@@ -1,168 +1,222 @@
-import numpy
+#-----------------------------------------#
+# Projeto Prático de Grafos - Etapa 1     #
+# Grupo:                                  #
+# Caio Bueno Finocchio Martins (202410377)#
+# Diego Alves de Oliveira (202410370)     #
+#-----------------------------------------#
 
+import numpy as np
+import heapq
+
+# Função para ler o arquivo .dat e extrair os dados relevantes
 def ler_arquivo(nome_arquivo):
-    with open(nome_arquivo, 'r', encoding='utf-8') as f:
-        linhas = f.readlines()
-    
-    # Informações gerais
-    qtdVeiculos = int(linhas[2].split()[-1])
-    capacidade = int(linhas[3].split()[-1])
-    deposito = int(linhas[4].split()[-1])
-    qtdVertices = int(linhas[5].split()[-1])
-    qtdArestas = int(linhas[6].split()[-1])
-    qtdArcos = int(linhas[7].split()[-1])
-    qtdVerticesReq = int(linhas[8].split()[-1])
-    qtdArestasReq = int(linhas[9].split()[-1])
-    qtdArcosReq = int(linhas[10].split()[-1])
-    
-    # Criar matriz de adjacência inicial com infinito
-    grafo = numpy.full((qtdVertices + 1, qtdVertices + 1), numpy.inf)
-    numpy.fill_diagonal(grafo, 0)
-    
-    # Ler ReN
-    i = 12  # Linha onde começa a tabela "ReN."
-    verticesReq = {}
 
-    while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("ReE."):
-        partes = linhas[i].split()
-        if partes[0].startswith("N"):
-            v = int(partes[0][1:])
-            demanda = int(partes[1])
-            custoServico = int(partes[2])
-            verticesReq[v] = (demanda, custoServico)
-        i += 1
-    
-    # Ler ReE
-    while not linhas[i].startswith("ReE."):
-        i += 1
-    i += 1  
+    try:
+        with open(nome_arquivo, 'r', encoding='utf-8') as f:
+            linhas = f.readlines()
 
-    arestasReq = []
-    arestas = []
-    while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("EDGE"):
-        partes = linhas[i].split()
-        if partes[0].startswith("E"):
-            origem, destino = map(int, [partes[1], partes[2]])
-            custoTransporte = int(partes[3])
-            demanda = int(partes[4])
-            custoServico = int(partes[5])
-            grafo[origem][destino] = custoTransporte # Bidirecionado
-            grafo[destino][origem] = custoTransporte
-            arestasReq.append((origem, destino, custoTransporte, demanda, custoServico))
-            arestas.append((origem, destino, custoTransporte))
-        i += 1
-    
-    # Ler EDGE
-    while not linhas[i].startswith("EDGE"):
-        i += 1
-    i += 1  
+        qtd_veiculos = int(linhas[2].split()[-1])
+        capacidade = int(linhas[3].split()[-1])
+        deposito = int(linhas[4].split()[-1])
+        qtd_vertices = int(linhas[5].split()[-1])
+        qtd_arestas = int(linhas[6].split()[-1])
+        qtd_arcos = int(linhas[7].split()[-1])
+        qtd_vertices_req = int(linhas[8].split()[-1])
+        qtd_arestas_req = int(linhas[9].split()[-1])
+        qtd_arcos_req = int(linhas[10].split()[-1])
 
-    while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("ReA."):
-        partes = linhas[i].split()
-        if partes[0].startswith("NrE"):
-            origem, destino = map(int, [partes[1], partes[2]])
-            custoTransporte = int(partes[3])
-            grafo[origem][destino] = custoTransporte
-            grafo[destino][origem] = custoTransporte
-            arestas.append((origem, destino, custoTransporte))
-        i += 1
-    
+        grafo = np.full((qtd_vertices + 1, qtd_vertices + 1), np.inf)
+        np.fill_diagonal(grafo, 0)
 
-    # Ler ReA
-    while not linhas[i].startswith("ReA."):
-        i += 1
-    i += 1
-    arcosReq = []
-    arcos = []
-    while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("ARC"):
-        partes = linhas[i].split()
-        if partes[0].startswith("A"):
-            origem, destino = map(int, [partes[1], partes[2]])
-            custoTransporte = int(partes[3])
-            demanda = int(partes[4])
-            custoServico = int(partes[5])
-            grafo[origem][destino] = custoTransporte  # Direcionado
-            arcosReq.append((origem, destino, custoTransporte, demanda, custoServico))
-            arcos.append((origem, destino, custoTransporte))
-        i += 1
-    
-    # Ler ARC
-    while not linhas[i].startswith("ARC"):
-        i += 1
-    i += 1  
+        i = 12
+        
+        # Adiciona os vértices requeridos ao grafo
+        vertices_req = {}
+        
+        while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("ReE."):
+            partes = linhas[i].split()
+            if partes[0].startswith("N"):
+                v = int(partes[0][1:])
+                demanda = int(partes[1])
+                custo_servico = int(partes[2])
+                vertices_req[v] = (demanda, custo_servico)
+            i += 1
 
-    while i < len(linhas) and linhas[i].strip():
-        partes = linhas[i].split()
-        if partes[0].startswith("NrA."):
-            origem, destino = map(int, [partes[1], partes[2]])
-            custoTransporte = int(partes[3])
-            grafo[origem][destino] = custoTransporte
-            arcos.append((origem, destino, custoTransporte))
+        # Adiciona os vértices requeridos ao grafo
+        while i < len(linhas) and not linhas[i].startswith("ReE."):
+            i += 1
         i += 1
 
-    return {
-        "qtdVeiculos": qtdVeiculos,
-        "capacidade": capacidade,
-        "deposito": deposito,
-        "qtdVertices": qtdVertices,
-        "qtdArestas": qtdArestas,
-        "qtdArcos": qtdArcos,
-        "qtdVerticesReq": qtdVerticesReq,
-        "qtdArestasReq": qtdArestasReq,
-        "qtdArcosReq": qtdArcosReq,
-        "verticesReq": verticesReq,
-        "arestasReq": arestasReq,
-        "arestas": arestas,
-        "arcosReq": arcosReq,
-        "arcos": arcos,
-        "grafo": grafo
-    }
+        arestas_req = []
+        arestas = []
+        while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("EDGE"):
+            partes = linhas[i].split()
+            if partes[0].startswith("E"):
+                origem, destino = map(int, [partes[1], partes[2]])
+                custo_transporte = int(partes[3])
+                demanda = int(partes[4])
+                custo_servico = int(partes[5])
+                grafo[origem][destino] = custo_transporte
+                grafo[destino][origem] = custo_transporte
+                arestas_req.append((origem, destino, custo_transporte, demanda, custo_servico))
+                arestas.append((origem, destino, custo_transporte))
+            i += 1
 
-def estatisticas_basicas(dados):
-    return {
-        "qtd_vertices": dados["qtdVertices"],
-        "qtd_arestas": dados["qtdArestas"],
-        "qtd_arcos": dados["qtdArcos"],
-        "qtd_vertices_req": dados["qtdVerticesReq"],
-        "qtd_arestas_req": dados["qtdArestasReq"],
-        "qtd_arcos_req": dados["qtdArcosReq"]
-    }
+        # Adiciona as arestas bidirecionais ao grafo
+        while i < len(linhas) and not linhas[i].startswith("EDGE"):
+            i += 1
+        i += 1
 
-def densidade(dados):
-    n = dados["qtdVertices"]
-    a = len(dados["arestas"]) + len(dados["arcos"])
-    if n > 1:
-        return a / (n * (n - 1))
-    else: return 0
+        while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("ReA."):
+            partes = linhas[i].split()
+            if partes[0].startswith("NrE"):
+                origem, destino = map(int, [partes[1], partes[2]])
+                custo_transporte = int(partes[3])
+                grafo[origem][destino] = custo_transporte
+                grafo[destino][origem] = custo_transporte
+                arestas.append((origem, destino, custo_transporte))
+            i += 1
 
-def componentes_conectados(grafo):
+        # Adiciona os arcos direcionais ao grafo
+        while i < len(linhas) and not linhas[i].startswith("ReA."):
+            i += 1
+        i += 1
+
+        arcos_req = []
+        arcos = []
+        while i < len(linhas) and linhas[i].strip() and not linhas[i].startswith("ARC"):
+            partes = linhas[i].split()
+            if partes[0].startswith("A"):
+                origem, destino = map(int, [partes[1], partes[2]])
+                custo_transporte = int(partes[3])
+                demanda = int(partes[4])
+                custo_servico = int(partes[5])
+                grafo[origem][destino] = custo_transporte
+                arcos_req.append((origem, destino, custo_transporte, demanda, custo_servico))
+                arcos.append((origem, destino, custo_transporte))
+            i += 1
+
+        # Adiciona os arcos bidirecionais ao grafo
+        while i < len(linhas) and not linhas[i].startswith("ARC"):
+            i += 1
+        i += 1
+
+        while i < len(linhas) and linhas[i].strip():
+            partes = linhas[i].split()
+            if partes[0].startswith("NrA"):
+                origem, destino = map(int, [partes[1], partes[2]])
+                custo_transporte = int(partes[3])
+                grafo[origem][destino] = custo_transporte
+                arcos.append((origem, destino, custo_transporte))
+            i += 1
+
+        return {
+            "qtd_veiculos": qtd_veiculos,
+            "capacidade": capacidade,
+            "deposito": deposito,
+            "qtd_vertices": qtd_vertices,
+            "qtd_arestas": qtd_arestas,
+            "qtd_arcos": qtd_arcos,
+            "qtd_vertices_req": qtd_vertices_req,
+            "qtd_arestas_req": qtd_arestas_req,
+            "qtd_arcos_req": qtd_arcos_req,
+            "vertices_req": vertices_req,
+            "arestas_req": arestas_req,
+            "arestas": arestas,
+            "arcos_req": arcos_req,
+            "arcos": arcos,
+            "grafo": grafo
+        }
+    except Exception as e:
+        raise ValueError(f"Erro ao processar o arquivo: {str(e)}")
+
+# Função para calcular a densidade do grafo
+def densidade(qtd_vertices, qtd_arestas, qtd_arcos):
+    max_ligacoes_arestas = (qtd_vertices * (qtd_vertices - 1)) / 2
+    max_ligacoes_arcos = (qtd_vertices * (qtd_vertices - 1))
+    total_ligacoes = max_ligacoes_arestas + max_ligacoes_arcos
+    return (qtd_arestas + qtd_arcos) / total_ligacoes
+
+# Função para calcular os graus dos vértices
+def calcula_graus(dados):
+    qtd_vertices = dados["qtd_vertices"]
+    grau_arestas = [0] * (qtd_vertices + 1)
+    grau_entrada = [0] * (qtd_vertices + 1)
+    grau_saida = [0] * (qtd_vertices + 1)
+
+    for origem, destino, _ in dados["arestas"]:
+        grau_arestas[origem] += 1
+        grau_arestas[destino] += 1
+
+    for origem, destino, _ in dados["arcos"]:
+        grau_saida[origem] += 1
+        grau_entrada[destino] += 1
+
+    resultado = []
+    for v in range(1, qtd_vertices + 1):
+        total = grau_arestas[v] + grau_entrada[v] + grau_saida[v]
+        resultado.append((v, grau_arestas[v], grau_entrada[v], grau_saida[v], total))
+
+    return resultado
+
+# Implementação do algoritmo de Dijkstra
+def dijkstra(grafo, inicio):
+
     n = grafo.shape[0]
-    visitado = [False] * v
-    componentesConectados = 0
+    distancias = {v: float('inf') for v in range(n)}
+    predecessores = {v: -1 for v in range(n)}
+    distancias[inicio] = 0
+    
+    heap = []
+    heapq.heappush(heap, (0, inicio))
+    
+    visitados = set()
+    
+    while heap:
+        dist_atual, vertice_atual = heapq.heappop(heap)
+        
+        if vertice_atual in visitados:
+            continue
+            
+        visitados.add(vertice_atual)
+        
+        for vizinho in range(n):
+            if grafo[vertice_atual][vizinho] < float('inf'):
+                distancia = dist_atual + grafo[vertice_atual][vizinho]
+                
+                if distancia < distancias[vizinho]:
+                    distancias[vizinho] = distancia
+                    predecessores[vizinho] = vertice_atual
+                    heapq.heappush(heap, (distancia, vizinho))
+    
+    return distancias, predecessores
 
-    # Depth-First Search
-    def dfs(v):
-        visitado[v] = True
-        for u in range(n):
-            # Considera o grafo como não-direcionado
-            if grafo[v][u] < numpy.inf or grafo[u][v] < numpy.inf and not visitado[u]:
-                dfs(u)
+# Função para calcular todas as distâncias usando Dijkstra
+def calcular_todas_distancias_dijkstra(grafo):
+  
+    n = grafo.shape[0]
+    distancias = np.full((n, n), np.inf)
+    predecessores = np.full((n, n), -1)
+    
+    for i in range(n):
+        dist, pred = dijkstra(grafo, i)
+        for j in range(n):
+            distancias[i][j] = dist[j]
+            predecessores[i][j] = pred[j]
+    
+    np.fill_diagonal(distancias, 0)
+    return distancias, predecessores
 
-    for v in range(n):
-        if not visitado[v]:
-            componentesConectados += 1
-            dfs(v)
-
-    return componentesConectados
-
-def graus_vertices(dados):
-    return
-
-# Floyd-Warshall 
-def fw(grafo):
+# Função de Floyd-Warshall para comparação
+def floyd_warshall(grafo):
     n = grafo.shape[0]
     distancia = grafo.copy()
-    predecessores = numpy.full((n, n), -1)
+    predecessores = np.full((n, n), -1)
+
+    for i in range(n):
+        for j in range(n):
+            if i != j and grafo[i][j] < np.inf:
+                predecessores[i][j] = i
 
     for k in range(n):
         for i in range(n):
@@ -173,8 +227,102 @@ def fw(grafo):
 
     return distancia, predecessores
 
-def intermediacao():
+# Função para calcular o caminho médio entre todos os pares de vértices
+def caminho_medio(distancias):
+    n = distancias.shape[0]
+    soma = 0
+    cont = 0
+    for i in range(1, n):
+        for j in range(1, n):
+            if i != j and distancias[i][j] < np.inf:
+                soma += distancias[i][j]
+                cont += 1
+    return soma / cont if cont > 0 else 0
 
-def caminho_medio():
+# Função para calcular o diâmetro do grafo
+def diametro(distancias):
+    n = distancias.shape[0]
+    max_dist = 0
+    for i in range(1, n):
+        for j in range(1, n):
+            if i != j and distancias[i][j] < np.inf:
+                max_dist = max(max_dist, distancias[i][j])
+    return int(max_dist)
 
-def diametro():
+# Função para reconstruir o caminho mais curto
+def reconstruir_caminho(predecessores, inicio, fim):
+    caminho = []
+    atual = fim
+    
+    while atual != -1 and atual != inicio and atual in predecessores:
+        caminho.insert(0, atual)
+        atual = predecessores[atual]
+    
+    if atual == inicio:
+        caminho.insert(0, inicio)
+        return caminho
+    return None
+
+# Função para calcular a intermediação de cada vértice usando Dijkstra
+def calcula_intermediacao(vertices, grafo):
+    intermediacao = {v: 0 for v in vertices}
+    
+    for u in vertices:
+        distancias, predecessores = dijkstra(grafo, u)
+        for v in vertices:
+            if u != v:
+                caminho = reconstruir_caminho(predecessores, u, v)
+                if caminho:
+                    for vertice in caminho[1:-1]:  # Ignora o primeiro e o último vértice
+                        intermediacao[vertice] += 1
+    
+    return intermediacao
+
+def main():
+    try:
+        nome_arquivo = input("Digite o nome do arquivo (ex: nome_arquivo.dat): ")
+        dados = ler_arquivo(nome_arquivo)
+        grafo = dados["grafo"]
+
+        print("")
+        print(f"- ESTATÍSTICAS BÁSICAS DO GRAFO:")
+        print(f"- Quantidade de vértices: {dados['qtd_vertices']}")
+        print(f"- Quantidade de arestas: {dados['qtd_arestas']}")
+        print(f"- Quantidade de arcos: {dados['qtd_arcos']}")
+        print(f"- Quantidade de vértices requeridos: {dados['qtd_vertices_req']}")
+        print(f"- Quantidade de arestas requeridas: {dados['qtd_arestas_req']}")
+        print(f"- Quantidade de arcos requeridos: {dados['qtd_arcos_req']}")
+        print(f"- Densidade do grafo: {densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos']):.4f}")
+
+        # Cálculo dos graus por vértice
+        graus = calcula_graus(dados)
+        graus = [g for g in graus if g[0] != 0]
+        grau_total_list = [g[4] for g in graus]
+
+        print(f"- Grau total mínimo: {min(grau_total_list)}")
+        print(f"- Grau total máximo: {max(g[1] for g in graus)}")
+
+        # Escolhe o algoritmo baseado na densidade do grafo
+        dens = densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos'])
+        if dens > 0.5:                                                                    # Grafo denso - Floyd-Warshall é mais eficiente
+            distancias, predecessores = floyd_warshall(grafo)
+        else:                                                                             # Grafo esparso - Dijkstra é mais eficiente
+            distancias, predecessores = calcular_todas_distancias_dijkstra(grafo)
+
+        print(f"- Caminho médio: {caminho_medio(distancias):.4f}")
+        print(f"- Diâmetro do grafo: {diametro(distancias)}")
+        
+        print("")
+        print("- INTERMEDIAÇÃO DOS VÉRTICES:")
+        vertices = list(range(1, dados["qtd_vertices"] + 1))
+        intermed = calcula_intermediacao(vertices, grafo)
+        for vertice in sorted(intermed.keys()):
+            print(f"- Vértice {vertice}: {intermed[vertice]}")
+
+    except ValueError as e:
+        print(f"Erro: {str(e)}")
+    except Exception as e:
+        print(f"Erro inesperado: {str(e)}")
+
+if __name__ == "__main__":
+    main()
