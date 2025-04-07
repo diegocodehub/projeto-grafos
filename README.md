@@ -7,7 +7,7 @@ Este projeto em Python foi desenvolvido com o objetivo de **ler, modelar e anali
 - **Leitura estruturada de arquivos `.dat`** contendo definição de vértices, arestas, arcos e demandas;
 - Construção de um **grafo representado como matriz de adjacência (usando `numpy`)**;
 - **Cálculo da densidade do grafo** considerando ligações direcionadas e bidirecionais;
-- **Cálculo de graus dos vértices**, incluindo grau por arestas, entrada, saída e grau total;
+- **Cálculo de graus dos vértices**, cálculo do grau mínimo e máximo dos vértices;
 - **Escolha adaptativa entre os algoritmos de Dijkstra e Floyd-Warshall** com base na densidade do grafo;
 - **Cálculo do diâmetro do grafo** e do **caminho médio** entre os pares de vértices;
 - **Reconstrução de caminhos mínimos** entre pares de vértices;
