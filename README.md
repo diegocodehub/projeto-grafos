@@ -1,17 +1,17 @@
-# 🔍 Análise e Processamento de Grafos a partir de Arquivos `.dat`
+# Análise e Processamento de Grafos a partir de Arquivos `.dat`
 
-Este projeto em Python foi desenvolvido com o objetivo de **ler, modelar e analisar estruturas de grafos complexos**, extraídos a partir de arquivos `.dat`, comuns em instâncias de problemas de roteamento de veículos. A partir do grafo construído, o código realiza o **cálculo de métricas importantes** da Teoria dos Grafos, como densidade, graus dos vértices, diâmetro, caminho médio e centralidade de intermediação.
+Este projeto em Python foi desenvolvido com o objetivo de **ler, modelar e analisar estruturas de grafos complexos**, extraídos a partir de arquivos `.dat`. A partir do grafo construído, o código realiza o **cálculo de métricas importantes** da Teoria dos Grafos.
 
 ## Funcionalidades
 
-- **Leitura estruturada de arquivos `.dat`** contendo definição de vértices, arestas, arcos e demandas;
+- **Leitura estruturada de arquivos `.dat`** leitura de vértices, arestas, arcos e demandas;
 - Construção de um **grafo representado como matriz de adjacência (usando `numpy`)**;
 - **Cálculo da densidade do grafo** considerando ligações direcionadas e bidirecionais;
 - **Cálculo de graus dos vértices**, cálculo do grau mínimo e máximo dos vértices;
 - **Escolha adaptativa entre os algoritmos de Dijkstra e Floyd-Warshall** com base na densidade do grafo;
 - **Cálculo do diâmetro do grafo** e do **caminho médio** entre os pares de vértices;
 - **Reconstrução de caminhos mínimos** entre pares de vértices;
-- **Cálculo da centralidade de intermediação** (quantas vezes um vértice aparece em caminhos mínimos entre todos os pares).
+- **Cálculo da intermediação dos vértices** quantas vezes um vértice aparece em caminhos mínimos entre todos os pares.
 
 ## 📁 Estrutura do Código
 
@@ -42,7 +42,7 @@ pip install numpy
 2. Execute o script principal com:
 
 ```bash
-python ProjetoPrático.py
+python projeto1.py
 ```
 
 3. Siga as instruções no terminal:
@@ -53,7 +53,34 @@ python ProjetoPrático.py
 ## 📊 Exemplo de Saída
 
 ```bash
+Digite o nome do arquivo (ex: nome_arquivo.dat):
 
+- ESTATÍSTICAS BÁSICAS DO GRAFO:
+- Quantidade de vértices: 12
+- Quantidade de arestas: 11
+- Quantidade de arcos: 22
+- Quantidade de vértices requeridos: 7
+- Quantidade de arestas requeridas: 11
+- Quantidade de arcos requeridos: 11
+- Densidade do grafo: 0.1667
+- Grau total mínimo: 4
+- Grau total máximo: 3
+- Caminho médio: 16.7121
+- Diâmetro do grafo: 30
+
+- INTERMEDIAÇÃO DOS VÉRTICES:
+- Vértice 1: 18
+- Vértice 2: 22
+- Vértice 3: 6
+- Vértice 4: 0
+- Vértice 5: 14
+- Vértice 6: 38
+- Vértice 7: 22
+- Vértice 8: 16
+- Vértice 9: 14
+- Vértice 10: 6
+- Vértice 11: 0
+- Vértice 12: 22
 ```
 
 ## Estratégia de Escolha do Algoritmo
