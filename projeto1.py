@@ -300,7 +300,7 @@ def main():
         grau_total_list = [g[4] for g in graus]
 
         print(f"- Grau total mínimo: {min(grau_total_list)}")
-        print(f"- Grau total máximo: {max(g[1] for g in graus)}")
+        print(f"- Grau total máximo: {max(grau_total_list)}")
 
         # Escolhe o algoritmo baseado na densidade do grafo
         dens = densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos'])
