@@ -284,23 +284,23 @@ def main():
         dados = ler_arquivo(nome_arquivo)
         grafo = dados["grafo"]
 
-        print("")
-        print(f"- ESTATÍSTICAS BÁSICAS DO GRAFO:")
-        print(f"- Quantidade de vértices: {dados['qtd_vertices']}")
-        print(f"- Quantidade de arestas: {dados['qtd_arestas']}")
-        print(f"- Quantidade de arcos: {dados['qtd_arcos']}")
-        print(f"- Quantidade de vértices requeridos: {dados['qtd_vertices_req']}")
-        print(f"- Quantidade de arestas requeridas: {dados['qtd_arestas_req']}")
-        print(f"- Quantidade de arcos requeridos: {dados['qtd_arcos_req']}")
-        print(f"- Densidade do grafo: {densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos']):.4f}")
+        # print("")
+        # print(f"- ESTATÍSTICAS BÁSICAS DO GRAFO:")
+        # print(f"- Quantidade de vértices: {dados['qtd_vertices']}")
+        # print(f"- Quantidade de arestas: {dados['qtd_arestas']}")
+        # print(f"- Quantidade de arcos: {dados['qtd_arcos']}")
+        # print(f"- Quantidade de vértices requeridos: {dados['qtd_vertices_req']}")
+        # print(f"- Quantidade de arestas requeridas: {dados['qtd_arestas_req']}")
+        # print(f"- Quantidade de arcos requeridos: {dados['qtd_arcos_req']}")
+        # print(f"- Densidade do grafo: {densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos']):.4f}")
 
         # Cálculo dos graus por vértice
         graus = calcula_graus(dados)
         graus = [g for g in graus if g[0] != 0]
         grau_total_list = [g[4] for g in graus]
 
-        print(f"- Grau total mínimo: {min(grau_total_list)}")
-        print(f"- Grau total máximo: {max(grau_total_list)}")
+        # print(f"- Grau total mínimo: {min(grau_total_list)}")
+        # print(f"- Grau total máximo: {max(grau_total_list)}")
 
         # Escolhe o algoritmo baseado na densidade do grafo
         dens = densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos'])
@@ -309,15 +309,40 @@ def main():
         else:                                                                             # Grafo esparso - Dijkstra é mais eficiente
             distancias, predecessores = calcular_todas_distancias_dijkstra(grafo)
 
-        print(f"- Caminho médio: {caminho_medio(distancias):.4f}")
-        print(f"- Diâmetro do grafo: {diametro(distancias)}")
+        # print(f"- Caminho médio: {caminho_medio(distancias):.4f}")
+        # print(f"- Diâmetro do grafo: {diametro(distancias)}")
+
+        # Exportação das estátisticas para estatisticas.csv para melhor vizualização
+        with open("estatisticas.csv", "w", encoding="utf-8") as arq:
+            arq.write(f"\n")
+            arq.write(f"MÉTRICA,VALOR\n")
+            arq.write(f"Quantidade de vértices,{dados['qtd_vertices']}\n")
+            arq.write(f"Quantidade de arestas,{dados['qtd_arestas']}\n")
+            arq.write(f"Quantidade de arcos,{dados['qtd_arcos']}\n")
+            arq.write(f"Quantidade de vértices requeridos,{dados['qtd_vertices_req']}\n")
+            arq.write(f"Quantidade de arestas requeridas,{dados['qtd_arestas_req']}\n")
+            arq.write(f"Quantidade de arcos requeridos,{dados['qtd_arcos_req']}\n")
+            arq.write(f"Densidade do grafo,{densidade(dados['qtd_vertices'], dados['qtd_arestas'], dados['qtd_arcos']):.4f}\n")
+            arq.write(f"Grau total mínimo,{min(grau_total_list)}\n")
+            arq.write(f"Grau total máximo,{max(grau_total_list)}\n")
+            arq.write(f"Caminho médio,{caminho_medio(distancias):.4f}\n")
+            arq.write(f"Diâmetro do grafo,{diametro(distancias)}\n")
+
+        # Exportação da intermediação para intermediacao.csv para melhor vizualização
+        with open("intermediacao.csv", "w", encoding="utf-8") as arq:
+            vertices = list(range(1, dados["qtd_vertices"] + 1))
+            intermed = calcula_intermediacao(vertices, grafo)
+            for vertice in sorted(intermed.keys()):
+                arq.write(f"Vértice {vertice},{intermed[vertice]}\n")
+
+        # print("")
+        # print("- INTERMEDIAÇÃO DOS VÉRTICES:")
+        # vertices = list(range(1, dados["qtd_vertices"] + 1))
+        # intermed = calcula_intermediacao(vertices, grafo)
+        # for vertice in sorted(intermed.keys()):
+        # print(f"- Vértice {vertice}: {intermed[vertice]}")
+
         
-        print("")
-        print("- INTERMEDIAÇÃO DOS VÉRTICES:")
-        vertices = list(range(1, dados["qtd_vertices"] + 1))
-        intermed = calcula_intermediacao(vertices, grafo)
-        for vertice in sorted(intermed.keys()):
-            print(f"- Vértice {vertice}: {intermed[vertice]}")
 
     except ValueError as e:
         print(f"Erro: {str(e)}")
