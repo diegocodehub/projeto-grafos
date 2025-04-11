@@ -8,6 +8,9 @@
 import numpy as np
 import heapq
 
+# Declarando variável global grafo
+global_grafo = None
+
 # Função para ler o arquivo .dat e extrair os dados relevantes
 def ler_arquivo(nome_arquivo):
 
@@ -278,6 +281,10 @@ def calcula_intermediacao(vertices, grafo):
     
     return intermediacao
 
+def carregar_grafo(nome_arquivo):
+    dados = ler_arquivo(nome_arquivo)
+    return dados["grafo"], dados
+
 def main():
     try:
         nome_arquivo = input("Digite o nome do arquivo .dat (ex: nome_arquivo.dat): ")
@@ -332,6 +339,7 @@ def main():
         with open("intermediacao.csv", "w", encoding="utf-8") as arq:
             vertices = list(range(1, dados["qtd_vertices"] + 1))
             intermed = calcula_intermediacao(vertices, grafo)
+            arq.write(f"VÉRTICE,QUANTIDADE\n")
             for vertice in sorted(intermed.keys()):
                 arq.write(f"Vértice {vertice},{intermed[vertice]}\n")
 
@@ -342,7 +350,9 @@ def main():
         # for vertice in sorted(intermed.keys()):
         # print(f"- Vértice {vertice}: {intermed[vertice]}")
 
-        
+        # Atualizando variável global grafo (para visualização)
+        global global_grafo
+        global_grafo = grafo
 
     except ValueError as e:
         print(f"Erro: {str(e)}")
