@@ -5,10 +5,12 @@
 # Diego Alves de Oliveira (202410370)     #
 #-----------------------------------------#
 
-import numpy as np
-import heapq
+import numpy as np                      # Importando numpy para manipulação de matrizes
+import heapq                            # Importando heapq para implementação de fila de prioridade
+import pandas as pd                     # Importando pandas para manipulação/visualização de dados
+import matplotlib.pyplot as plt         # Importando matplotlib para visualização de dados
 
-# Declarando variável global grafo
+# Declarando variável global grafo (para visualização)
 global_grafo = None
 
 # Função para ler o arquivo .dat e extrair os dados relevantes
@@ -281,13 +283,125 @@ def calcula_intermediacao(vertices, grafo):
     
     return intermediacao
 
+# Função para carregar as estatísticas do grafo no notebook
+def carregar_estatisticas():
+    df = pd.read_csv("estatisticas.csv") # criação do data frame
+    
+    def format_value(x): 
+        return f"{int(x)}" if x == int(x) else f"{x}" # Exibe como inteiro se não houver parte decimal
+    
+    styled_df = ( 
+        df.style
+        .format({"VALOR": format_value})
+        .set_caption("ESTÁTISTICAS BÁSICAS DO GRAFO:")
+        .hide(axis="index")
+    )
+    return styled_df 
+
+# Função para carregar a intermediação dos vértices no notebook
+def plotar_intermediacao():
+    df = pd.read_csv("intermediacao.csv")   
+    
+    # Verifica se as colunas esperadas existem
+    if "VÉRTICE" not in df.columns or "QUANTIDADE" not in df.columns:
+        raise ValueError("Erro: O arquivo intermediacao.csv deve conter as colunas 'VÉRTICE' e 'QUANTIDADE'")
+    
+    # Ordena os vértices por quantidade para melhor visualização (descrescente)
+    df = df.sort_values(by="QUANTIDADE", ascending=False)
+    
+    # Cria o gráfico de barras
+    plt.figure(figsize=(10, 6))
+    plt.bar(df["VÉRTICE"], df["QUANTIDADE"], color="skyblue", edgecolor="black")
+    plt.title("Intermediação dos Vértices (descrescente):", fontsize=16)
+    plt.xlabel("Vértices", fontsize=12)
+    plt.ylabel("Valor de Intermediação", fontsize=12)
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+    plt.tight_layout()
+    
+    # Exibe o gráfico
+    plt.show()
+
+# Função para carregar o grafo e os dados do arquivo .dat
 def carregar_grafo(nome_arquivo):
     dados = ler_arquivo(nome_arquivo)
     return dados["grafo"], dados
 
+# Função para criar a tabela do grafo no notebook (utilização de um pouco de HTML e CSS para melhorar a visualização)
+def criar_tabela_grafo(global_grafo):
+    grafo_ajustado = np.array(global_grafo)[1:, 1:]
+    n_vertices = grafo_ajustado.shape[0]
+    
+    if n_vertices <= 30:
+        cell_width = '25px'
+        font_size = '9pt'
+    elif n_vertices <= 100:
+        cell_width = '15px'
+        font_size = '8pt'
+    else:
+        cell_width = '10px'
+        font_size = '7pt'
+    
+    df = pd.DataFrame(
+        grafo_ajustado,
+        index=range(1, n_vertices + 1),
+        columns=range(1, n_vertices + 1)
+    )
+    
+    def format_value(x):
+        if pd.isna(x):
+            return "-"
+        elif np.isinf(x):
+            return "∞"
+        elif isinstance(x, (int, np.integer)):
+            return str(x)
+        elif isinstance(x, (float, np.floating)):
+            return f"{x:.2f}" if not x.is_integer() else str(int(x))
+        return str(x)
+    
+    def background_style(x):
+        return 'background-color: #e6f3ff' if x != 0 and not np.isinf(x) else 'background-color: white'
+    
+    styled_table = (
+        df.style
+        .map(background_style)
+        .format(format_value)
+        .set_properties(**{
+            'text-align': 'center',
+            'font-size': font_size,
+            'padding': '2px',
+            'border': '1px solid #ddd',
+            'width': cell_width,
+            'height': cell_width
+        })
+        .set_table_styles([{
+            'selector': 'table',
+            'props': [
+                ('width', 'auto'),
+                ('margin', '0 auto'),
+                ('display', 'block' if n_vertices > 100 else 'inline-block'),
+                ('max-width', '100%'),
+                ('overflow-x', 'auto' if n_vertices > 100 else 'visible')
+            ]
+        }, {
+            'selector': 'th, td',
+            'props': [('max-width', cell_width)]
+        }])
+    )
+    return styled_table
+
 def main():
     try:
-        nome_arquivo = input("Digite o nome do arquivo .dat (ex: nome_arquivo.dat): ")
+        # loop para garantir a inserção correta do arquivo .dat
+        while True:
+            try:
+                nome_arquivo = input("Digite o nome do arquivo .dat (ex: nome_arquivo.dat): ")
+                with open(nome_arquivo, 'r', encoding='utf-8') as f:
+                    break  # Sai do loop se o arquivo for aberto com sucesso
+            except FileNotFoundError:
+                print("Arquivo não encontrado. Por favor, tente novamente.")
+            except Exception as e:
+                print(f"Erro ao abrir o arquivo: {e}. Por favor, tente novamente.")
+
         dados = ler_arquivo(nome_arquivo)
         grafo = dados["grafo"]
 
@@ -319,7 +433,7 @@ def main():
         # print(f"- Caminho médio: {caminho_medio(distancias):.4f}")
         # print(f"- Diâmetro do grafo: {diametro(distancias)}")
 
-        # Exportação das estátisticas para estatisticas.csv para melhor vizualização
+        # Exportação das estátisticas para estatisticas.csv
         with open("estatisticas.csv", "w", encoding="utf-8") as arq:
             arq.write(f"\n")
             arq.write(f"MÉTRICA,VALOR\n")
@@ -335,7 +449,7 @@ def main():
             arq.write(f"Caminho médio,{caminho_medio(distancias):.4f}\n")
             arq.write(f"Diâmetro do grafo,{diametro(distancias)}\n")
 
-        # Exportação da intermediação para intermediacao.csv para melhor vizualização
+        # Exportação da intermediação para intermediacao.csv
         with open("intermediacao.csv", "w", encoding="utf-8") as arq:
             vertices = list(range(1, dados["qtd_vertices"] + 1))
             intermed = calcula_intermediacao(vertices, grafo)
