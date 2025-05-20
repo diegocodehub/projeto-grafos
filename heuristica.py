@@ -43,6 +43,7 @@ def construir_grafo(services):
     return grafo
 
 
+
 def clarke_wright(v0, Q, servicos_req, grafo):
     # Calcula todos os menores caminhos a partir de cada nó relevante
     nos_relevantes = set([v0])
