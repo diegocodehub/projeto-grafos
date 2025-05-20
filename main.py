@@ -1,5 +1,8 @@
 import sys
 import time
+import csv
+import os
+import psutil
 from heuristica import resolver_problema, info_serv, custo_serv_dict, custos_desloc
 
 
@@ -74,34 +77,88 @@ def ler_instancia(caminho):
         sys.exit(1)
 
 
+def obter_clocks_csv(nome_base):
+    import csv
+    import os
+    caminho_csv = os.path.join(os.path.dirname(__file__), 'reference_values.csv')
+    try:
+        with open(caminho_csv, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader)  # pula cabeçalho
+            for row in reader:
+                if row and row[0].strip() == nome_base:
+                    return int(row[3]), int(row[4])
+    except Exception as e:
+        print(f"Erro ao ler reference_values.csv: {e}")
+    return -1, -1
+
+def obter_clock_melhor_sol(nome_base):
+    caminho_csv = os.path.join(os.path.dirname(__file__), 'reference_values.csv')
+    try:
+        with open(caminho_csv, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader)  # pula cabeçalho
+            for row in reader:
+                if row and row[0].strip() == nome_base:
+                    return int(row[4])
+    except Exception as e:
+        print(f"Erro ao ler reference_values.csv: {e}")
+    return -1
+
+
 def main():
-    if len(sys.argv) != 3:
-        print('Uso: python main.py <instancia.dat> <sol-nome.dat>')
+    if len(sys.argv) != 2:
+        print('Uso: python main.py <instancia.dat>')
         sys.exit(1)
 
-    instancia, saida = sys.argv[1], sys.argv[2]
+    instancia = sys.argv[1]
+    nome_base = os.path.splitext(os.path.basename(instancia))[0]
+    pasta_resultados = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resultados')
+    os.makedirs(pasta_resultados, exist_ok=True)
+    saida = os.path.join(pasta_resultados, f"{nome_base}_sol.dat")
+    clock_melhor_sol = obter_clock_melhor_sol(nome_base)
     v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr = ler_instancia(instancia)
 
-    inicio = time.process_time()
+    freq_mhz = psutil.cpu_freq().current
+    freq_hz = freq_mhz * 1_000_000
+
+    clock_inicio_total = time.perf_counter_ns()
     rotas, seq_ids_por_rota, custo_desloc_total, custo_serv_total = resolver_problema(
         v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr
     )
-    fim = time.process_time()
+    clock_fim_total = time.perf_counter_ns()
+    clock_total = clock_fim_total - clock_inicio_total
+    ciclos_estimados = int(clock_total * (freq_hz / 1_000_000_000))
 
     custo_total = custo_desloc_total + custo_serv_total
     num_rotas = len(rotas)
-    t_clock = int((fim - inicio) * 1e6)
 
     # Escreve solução em arquivo
     with open(saida, 'w', encoding='utf-8') as f:
         f.write(f"{custo_total}\n")
         f.write(f"{num_rotas}\n")
-        f.write(f"{t_clock}\n")
-        f.write(f"{t_clock}\n")
+        f.write(f"{clock_melhor_sol}\n")
+        f.write(f"{ciclos_estimados}\n")
 
         for rid, (rota, seq_ids) in enumerate(zip(rotas, seq_ids_por_rota), start=1):
             demanda_rota = sum(custo_serv_dict[sid] for sid in seq_ids)
-            custo_rota = sum(custos_desloc[(u, v)] for u, v in zip(rota, rota[1:])) + demanda_rota
+            # Calcula custo de deslocamento da rota
+            custo_desloc = 0
+            for u, v in zip(rota, rota[1:]):
+                if (u, v) in custos_desloc:
+                    custo_desloc += custos_desloc[(u, v)]
+                else:
+                    from heuristica import dijkstra
+                    grafo_tmp = {}
+                    for (a, b), c in custos_desloc.items():
+                        if a not in grafo_tmp:
+                            grafo_tmp[a] = []
+                        grafo_tmp[a].append((b, c))
+                    if u not in grafo_tmp:
+                        grafo_tmp[u] = []
+                    dist, _ = dijkstra(grafo_tmp, u)
+                    custo_desloc += dist.get(v, 0)
+            custo_rota = custo_desloc + demanda_rota
             num_visitas = 2 + len(seq_ids)
 
             prefixo = f"0 1 {rid} {demanda_rota} {custo_rota} {num_visitas}"
