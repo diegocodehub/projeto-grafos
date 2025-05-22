@@ -141,7 +141,19 @@ def main():
         f.write(f"{ciclos_estimados}\n")
 
         for rid, (rota, seq_ids) in enumerate(zip(rotas, seq_ids_por_rota), start=1):
-            demanda_rota = sum(custo_serv_dict[sid] for sid in seq_ids)
+            # Garante que todos os serviços estão no dicionário, se não, usa demanda do cliente
+            demanda_rota = 0
+            for sid in seq_ids:
+                if sid in custo_serv_dict:
+                    demanda_rota += custo_serv_dict[sid]
+                else:
+                    # Busca demanda do cliente (caso heurística não tenha preenchido custo_serv_dict)
+                    for cliente in rotas:
+                        if isinstance(cliente, dict):
+                            for c in cliente.get('clientes', []):
+                                if c['id'] == sid:
+                                    demanda_rota += c['demanda']
+                                    break
             # Calcula custo de deslocamento da rota
             custo_desloc = 0
             for u, v in zip(rota, rota[1:]):
@@ -164,7 +176,20 @@ def main():
             prefixo = f"0 1 {rid} {demanda_rota} {custo_rota} {num_visitas}"
             detalhes = ['(D 0,1,1)']
             for sid in seq_ids:
-                _, i, j = info_serv[sid]
+                if sid in info_serv:
+                    _, i, j = info_serv[sid]
+                else:
+                    # Busca info do cliente caso não esteja em info_serv
+                    i = j = None
+                    for cliente in rotas:
+                        if isinstance(cliente, dict):
+                            for c in cliente.get('clientes', []):
+                                if c['id'] == sid:
+                                    i = c['origem']
+                                    j = c['destino']
+                                    break
+                    if i is None or j is None:
+                        i = j = 0
                 detalhes.append(f"(S {sid},{i},{j})")
             detalhes.append('(D 0,1,1)')
 
