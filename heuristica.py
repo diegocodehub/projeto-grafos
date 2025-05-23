@@ -272,6 +272,15 @@ def floyd_warshall(nos, arestas_req, arcos_req, arestas_nr, arcos_nr):
 
 
 def resolver_problema(v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr):
+    """
+    Resolve o problema CARP usando a heurística implementada.
+    Parâmetros:
+        v0 (int): Depósito
+        Q (int): Capacidade do veículo
+        arestas_req, arcos_req, nos, arestas_nr, arcos_nr: dados da instância
+    Retorna:
+        tuple: (rotas, seq_ids_por_rota, custo_desloc_total, custo_serv_total)
+    """
     # Preenche matriz de deslocamento robusta
     floyd_warshall(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
     clientes = preparar_clientes(nos, arestas_req, arcos_req)
