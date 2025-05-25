@@ -1,333 +1,209 @@
-import heapq
+import random
 from collections import defaultdict
+import heapq
 
-# Globais para mapeamento de serviços
-info_serv = {}
-custo_serv_dict = {}
-custos_desloc = {}
-demanda_serv_dict = {}
-
-
-def dijkstra(grafo, origem):
-    dist = {v: float('inf') for v in grafo}
-    dist[origem] = 0
-    pai = {v: None for v in grafo}
-    fila = [(0, origem)]
-    while fila:
-        d, u = heapq.heappop(fila)
-        if d > dist[u]:
-            continue
-        for v, c in grafo[u]:
-            if dist[v] > d + c:
-                dist[v] = d + c
-                pai[v] = u
-                heapq.heappush(fila, (dist[v], v))
-    return dist, pai
-
-
-def reconstruir_caminho(pai, destino):
-    caminho = []
-    while destino is not None:
-        caminho.append(destino)
-        destino = pai[destino]
-    return caminho[::-1]
-
-
-def construir_grafo(services):
-    grafo = defaultdict(list)
-    for sid, (i, j), c, q, tp in services:
-        custos_desloc[(i, j)] = c
-        grafo[i].append((j, c))
-        if tp == 'E':
-            custos_desloc[(j, i)] = c
-            grafo[j].append((i, c))
-    return grafo
-
-
-def clarke_wright(v0, Q, servicos_req, grafo):
-    # Calcula todos os menores caminhos a partir de cada nó relevante
-    nos_relevantes = set([v0])
-    for sid, (i, j), c, q, tp in servicos_req:
-        nos_relevantes.add(i)
-        nos_relevantes.add(j)
-    menor_caminho = {}
-    for u in nos_relevantes:
-        dist, _ = dijkstra(grafo, u)
-        menor_caminho[u] = dist
-    # Inicialmente, cada serviço é uma rota separada
-    rotas = []
-    seq_ids_por_rota = []
-    demanda_rota = []
-    for sid, (i, j), c, q, tp in servicos_req:
-        rota = [v0, i, j, v0]
-        rotas.append(rota)
-        seq_ids_por_rota.append([sid])
-        demanda_rota.append(q)
-    # Savings: economia ao unir duas rotas
-    savings = []
-    n = len(servicos_req)
-    for a in range(n):
-        for b in range(a+1, n):
-            sid_a, (i_a, j_a), c_a, q_a, _ = servicos_req[a]
-            sid_b, (i_b, j_b), c_b, q_b, _ = servicos_req[b]
-            # Economia ao unir rota_a e rota_b
-            saving = menor_caminho[j_a][v0] + menor_caminho[v0][i_b] - menor_caminho[j_a][i_b]
-            savings.append((saving, a, b))
-    # Ordena por maior economia
-    savings.sort(reverse=True)
-    # Estrutura para saber a qual rota cada serviço pertence
-    rota_de = list(range(n))
-    for saving, a, b in savings:
-        ra = rota_de[a]
-        rb = rota_de[b]
-        if ra == rb:
-            continue
-        if demanda_rota[ra] + demanda_rota[rb] > Q:
-            continue
-        # Une as rotas
-        nova_seq = seq_ids_por_rota[ra] + seq_ids_por_rota[rb]
-        nova_demanda = demanda_rota[ra] + demanda_rota[rb]
-        seq_ids_por_rota[ra] = nova_seq
-        demanda_rota[ra] = nova_demanda
-        for idx in seq_ids_por_rota[rb]:
-            rota_de[servicos_req.index(next(s for s in servicos_req if s[0]==idx))] = ra
-        seq_ids_por_rota[rb] = []
-        demanda_rota[rb] = 0
-    # Remove rotas vazias
-    rotas_finais = []
-    seqs_finais = []
-    for seq in seq_ids_por_rota:
-        if seq:
-            rota = [v0]
-            atual = v0
-            for sid in seq:
-                _, i, j, _, _ = next(s for s in servicos_req if s[0]==sid)
-                if isinstance(i, tuple):
-                    i = i[0]
-                if isinstance(j, tuple):
-                    j = j[0]
-                _, pai = dijkstra(grafo, atual)
-                caminho = reconstruir_caminho(pai, i)
-                rota += caminho[1:] if len(caminho) > 1 else []
-                rota.append(j)
-                atual = j
-            _, pai = dijkstra(grafo, atual)
-            caminho = reconstruir_caminho(pai, v0)
-            rota += caminho[1:] if len(caminho) > 1 else []
-            rotas_finais.append(rota)
-            seqs_finais.append(seq)
-    return rotas_finais, seqs_finais
-
-
-def preparar_clientes(nos, arestas_req, arcos_req):
-    clientes = []
+def extrair_tarefas(nos, arestas_req, arcos_req):
+    tarefas = []
     id_servico = 1
-    info_serv.clear()
-    custo_serv_dict.clear()
-    demanda_serv_dict.clear()
     for v, q in nos:
-        clientes.append({'tipo': 'n', 'id': id_servico, 'origem': v, 'destino': v, 'demanda': q, 'custo': 0})
-        info_serv[id_servico] = ('n', v, v)
-        custo_serv_dict[id_servico] = 0
-        demanda_serv_dict[id_servico] = q
+        tarefas.append({'tipo': 'vertice', 'id': id_servico, 'origem': v, 'destino': v, 'demanda': q, 'custo_servico': 0, 't_cost': 0})
         id_servico += 1
     for (u, v), c, q in arestas_req:
-        clientes.append({'tipo': 'e', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo': c})
-        info_serv[id_servico] = ('e', u, v)
-        custo_serv_dict[id_servico] = c
-        demanda_serv_dict[id_servico] = q
+        tarefas.append({'tipo': 'edge', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo_servico': c, 't_cost': c})
         id_servico += 1
     for (u, v), c, q in arcos_req:
-        clientes.append({'tipo': 'a', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo': c})
-        info_serv[id_servico] = ('a', u, v)
-        custo_serv_dict[id_servico] = c
-        demanda_serv_dict[id_servico] = q
+        tarefas.append({'tipo': 'arc', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo_servico': c, 't_cost': c})
         id_servico += 1
-    return clientes
+    return tarefas
 
+def construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr):
+    grafo = defaultdict(list)
+    for v, _ in nos:
+        grafo[v] = []
+    for (u, v), c, *_ in arestas_req + arestas_nr:
+        grafo[u].append((v, c))
+        grafo[v].append((u, c))
+    for (u, v), c, *_ in arcos_req + arcos_nr:
+        grafo[u].append((v, c))
+    return grafo
 
-def inicializar_rotas(clientes, deposito):
-    rotas = []
-    for cliente in clientes:
-        rota = {
-            'clientes': [cliente],
-            'demanda_total': cliente['demanda'],
-            'servicos': {(cliente['tipo'], cliente['id'])},
-            'sequencia': [deposito, cliente['origem'], cliente['destino'], deposito]
-        }
-        rotas.append(rota)
-    return rotas
+def dijkstra_pred(grafo, origem):
+    dist = defaultdict(lambda: float('inf'))
+    pred = {}
+    dist[origem] = 0
+    heap = [(0, origem)]
+    while heap:
+        d, u = heapq.heappop(heap)
+        if d > dist[u]:
+            continue
+        for v, custo in grafo[u]:
+            if dist[v] > d + custo:
+                dist[v] = d + custo
+                pred[v] = u
+                heapq.heappush(heap, (dist[v], v))
+    return dist, pred
 
+def caminho_mais_curto(pred, origem, destino):
+    if origem == destino:
+        return [origem]
+    caminho = [destino]
+    atual = destino
+    while atual != origem:
+        atual = pred.get(atual)
+        if atual is None:
+            return []
+        caminho.append(atual)
+    return list(reversed(caminho))
 
-def calcular_savings(rotas, custos_desloc, deposito):
-    savings = []
-    for i in range(len(rotas)):
-        for j in range(len(rotas)):
+def matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr):
+    grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
+    vertices = set(grafo.keys())
+    matriz = {u: {v: float('inf') for v in vertices} for u in vertices}
+    for u in vertices:
+        matriz[u][u] = 0
+    for u in vertices:
+        dist, _ = dijkstra_pred(grafo, u)
+        for v in vertices:
+            matriz[u][v] = dist[v]
+    return matriz
+
+def calcula_custos_entre_tarefas(tarefas, matriz_distancias):
+    custos = {}
+    for i, t1 in enumerate(tarefas):
+        for j, t2 in enumerate(tarefas):
             if i == j:
                 continue
-            fim_i = rotas[i]['sequencia'][-2]
-            ini_j = rotas[j]['sequencia'][1]
-            saving = custos_desloc.get((fim_i, deposito), 0) + custos_desloc.get((deposito, ini_j), 0) - custos_desloc.get((fim_i, ini_j), float('inf'))
-            savings.append((saving, i, j))
-    return sorted(savings, reverse=True)
+            origem_t1 = t1['destino'] if t1['tipo'] != 'vertice' else t1['origem']
+            destino_t2 = t2['origem']
+            custo = matriz_distancias[origem_t1][destino_t2] + t1['custo_servico'] + t2['custo_servico']
+            custos[(i, j)] = custo
+    return custos
 
+def construir_rota_completa(tarefas, tarefa_indices, depot_node, matriz_pred):
+    rota = [depot_node]
+    for i, idx in enumerate(tarefa_indices):
+        tarefa = tarefas[idx]
+        origem = tarefa['origem']
+        if i == 0:
+            rota += caminho_mais_curto(matriz_pred[rota[-1]], rota[-1], origem)[1:]
+        else:
+            anterior = tarefas[tarefa_indices[i - 1]]
+            ultimo = anterior['destino'] if anterior['tipo'] != 'vertice' else anterior['origem']
+            rota += caminho_mais_curto(matriz_pred[ultimo], ultimo, origem)[1:]
+        if tarefa['tipo'] == 'vertice':
+            pass
+        else:
+            rota.append(tarefa['destino'])
+    ultimo = tarefas[tarefa_indices[-1]]
+    fim = ultimo['destino'] if ultimo['tipo'] != 'vertice' else ultimo['origem']
+    rota += caminho_mais_curto(matriz_pred[fim], fim, depot_node)[1:]
+    return rota
 
-def juntar_rotas_iterativamente(rotas, custos_desloc, deposito, capacidade):
-    while True:
-        melhor_gain = float('-inf')
-        melhor_nova_rota = None
-        melhor_i = melhor_j = -1
-        melhor_tipo = None
-        # Testa todas as combinações e tipos de concatenação
-        for i in range(len(rotas)):
-            for j in range(len(rotas)):
-                if i == j:
-                    continue
-                rota_i = rotas[i]
-                rota_j = rotas[j]
-                # Checagem de unicidade dos serviços (apenas IDs)
-                ids_i = set(c['id'] for c in rota_i['clientes'])
-                ids_j = set(c['id'] for c in rota_j['clientes'])
-                if ids_i & ids_j:
-                    continue
-                nova_demanda = rota_i['demanda_total'] + rota_j['demanda_total']
-                if nova_demanda > capacidade:
-                    continue
-                # Fim de i com início de j
-                gain1 = custos_desloc.get((rota_i['sequencia'][-2], deposito), 0) + custos_desloc.get((deposito, rota_j['sequencia'][1]), 0) - custos_desloc.get((rota_i['sequencia'][-2], rota_j['sequencia'][1]), float('inf'))
-                seq1 = rota_i['sequencia'][:-1] + rota_j['sequencia'][1:]
-                # Início de i com fim de j (reverso)
-                gain2 = custos_desloc.get((rota_j['sequencia'][-2], deposito), 0) + custos_desloc.get((deposito, rota_i['sequencia'][1]), 0) - custos_desloc.get((rota_j['sequencia'][-2], rota_i['sequencia'][1]), float('inf'))
-                seq2 = rota_j['sequencia'][:-1] + rota_i['sequencia'][1:]
-                # Fim de i com fim de j (rota_j invertida)
-                gain3 = custos_desloc.get((rota_i['sequencia'][-2], deposito), 0) + custos_desloc.get((deposito, rota_j['sequencia'][-2]), 0) - custos_desloc.get((rota_i['sequencia'][-2], rota_j['sequencia'][-2]), float('inf'))
-                seq3 = rota_i['sequencia'][:-1] + rota_j['sequencia'][-2:0:-1] + [deposito]
-                # Início de i com início de j (rota_i invertida)
-                gain4 = custos_desloc.get((rota_i['sequencia'][1], deposito), 0) + custos_desloc.get((deposito, rota_j['sequencia'][1]), 0) - custos_desloc.get((rota_i['sequencia'][1], rota_j['sequencia'][1]), float('inf'))
-                seq4 = rota_i['sequencia'][1:-1][::-1] + rota_j['sequencia'][1:]
-                # Testa todas
-                for gain, seq, tipo in [
-                    (gain1, seq1, 'fim-inicio'),
-                    (gain2, seq2, 'inicio-fim'),
-                    (gain3, seq3, 'fim-fim'),
-                    (gain4, seq4, 'inicio-inicio')
-                ]:
-                    # Checagem extra: garantir que a nova rota não excede capacidade
-                    if gain > melhor_gain:
-                        # Calcular demanda da nova rota
-                        if tipo == 'fim-inicio':
-                            nova_clientes = rota_i['clientes'] + rota_j['clientes']
-                        elif tipo == 'inicio-fim':
-                            nova_clientes = rota_j['clientes'] + rota_i['clientes']
-                        elif tipo == 'fim-fim':
-                            nova_clientes = rota_i['clientes'] + rota_j['clientes'][::-1]
-                        elif tipo == 'inicio-inicio':
-                            nova_clientes = rota_i['clientes'][::-1] + rota_j['clientes']
-                        else:
-                            nova_clientes = rota_i['clientes'] + rota_j['clientes']
-                        nova_demanda_check = sum(c['demanda'] for c in nova_clientes)
-                        if nova_demanda_check > capacidade:
-                            continue
-                        melhor_gain = gain
-                        melhor_nova_rota = {
-                            'clientes': nova_clientes,
-                            'demanda_total': nova_demanda_check,
-                            'servicos': rota_i['servicos'] | rota_j['servicos'],
-                            'sequencia': seq
-                        }
-                        melhor_i, melhor_j = i, j
-                        melhor_tipo = tipo
-        if melhor_nova_rota is None:
-            break
-        novas_rotas = []
-        for k in range(len(rotas)):
-            if k != melhor_i and k != melhor_j:
-                novas_rotas.append(rotas[k])
-        novas_rotas.append(melhor_nova_rota)
-        rotas = novas_rotas
+def inicializa_rotas(tarefas, depot_node, capacity, matriz_pred):
+    rotas = []
+    for idx, tarefa in enumerate(tarefas):
+        if tarefa['demanda'] > capacity:
+            continue
+        rota_completa = construir_rota_completa(tarefas, [idx], depot_node, matriz_pred)
+        rotas.append({'tarefas': [idx], 'demanda': tarefa['demanda'], 'rota_completa': rota_completa})
     return rotas
 
+def pode_fundir_rotas(rota_i, rota_j, capacidade_max):
+    return (rota_i['demanda'] + rota_j['demanda']) <= capacidade_max
 
-def floyd_warshall(nos, arestas_req, arcos_req, arestas_nr, arcos_nr):
-    # Constrói lista de nós
-    vertices = set()
-    for v, _ in nos:
-        vertices.add(v)
-    def unpack(e):
-        if len(e) == 3:
-            return e
-        elif len(e) == 2:
-            return e[0], e[1], 0
-        else:
-            raise ValueError('Formato inesperado de aresta/arco')
-    for e in arestas_req + arcos_req + arestas_nr + arcos_nr:
-        (u, v), _, _ = unpack(e)
-        vertices.add(u)
-        vertices.add(v)
-    vertices = list(vertices)
-    idx = {v: i for i, v in enumerate(vertices)}
-    n = len(vertices)
-    dist = [[float('inf')] * n for _ in range(n)]
-    for i in range(n):
-        dist[i][i] = 0
-    # Adiciona todas as arestas/arcos
-    def unpack(e):
-        if len(e) == 3:
-            return e
-        elif len(e) == 2:
-            return e[0], e[1], 0
-        else:
-            raise ValueError('Formato inesperado de aresta/arco')
-    for (u, v), c, _ in [unpack(x) for x in arestas_req + arestas_nr]:
-        dist[idx[u]][idx[v]] = min(dist[idx[u]][idx[v]], c)
-        dist[idx[v]][idx[u]] = min(dist[idx[v]][idx[u]], c)
-    for (u, v), c, _ in [unpack(x) for x in arcos_req + arcos_nr]:
-        dist[idx[u]][idx[v]] = min(dist[idx[u]][idx[v]], c)
-    # Floyd-Warshall
-    for k in range(n):
-        for i in range(n):
-            for j in range(n):
-                if dist[i][j] > dist[i][k] + dist[k][j]:
-                    dist[i][j] = dist[i][k] + dist[k][j]
-    # Preenche custos_desloc global
-    for i in range(n):
-        for j in range(n):
-            if i != j and dist[i][j] < float('inf'):
-                custos_desloc[(vertices[i], vertices[j])] = dist[i][j]
+def funde_rotas(rota_i, rota_j, tarefas, depot_node, matriz_pred):
+    nova_tarefas = rota_i['tarefas'] + rota_j['tarefas']
+    nova_demanda = rota_i['demanda'] + rota_j['demanda']
+    nova_rota = construir_rota_completa(tarefas, nova_tarefas, depot_node, matriz_pred)
+    return {'tarefas': nova_tarefas, 'demanda': nova_demanda, 'rota_completa': nova_rota}
 
+def calcula_savings(tarefas, custos_entre_tarefas, matriz_distancias, deposito, capacidade_max):
+    savings = []
+    for i, t1 in enumerate(tarefas):
+        for j, t2 in enumerate(tarefas):
+            if i >= j:
+                continue
+            if (t1['demanda'] + t2['demanda']) > capacidade_max:
+                continue
+            custo_i0 = matriz_distancias[deposito][t1['origem']]
+            custo_0j = matriz_distancias[t2['destino']][deposito] if t2['tipo'] != 'vertice' else matriz_distancias[t2['origem']][deposito]
+            saving = custo_i0 + custo_0j - custos_entre_tarefas[(i, j)]
+            savings.append(((i, j), saving))
+    return savings
 
-def resolver_problema(v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr):
-    """
-    Resolve o problema CARP usando a heurística implementada.
-    Parâmetros:
-        v0 (int): Depósito
-        Q (int): Capacidade do veículo
-        arestas_req, arcos_req, nos, arestas_nr, arcos_nr: dados da instância
-    Retorna:
-        tuple: (rotas, seq_ids_por_rota, custo_desloc_total, custo_serv_total)
-    """
-    # Preenche matriz de deslocamento robusta
-    floyd_warshall(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-    clientes = preparar_clientes(nos, arestas_req, arcos_req)
-    rotas = inicializar_rotas(clientes, v0)
-    # Ordena as rotas por demanda total (crescente) para facilitar uniões melhores
-    rotas.sort(key=lambda r: r['demanda_total'])
-    rotas = juntar_rotas_iterativamente(rotas, custos_desloc, v0, Q)
-    # Monta saída compatível
-    rotas_finais = []
-    seqs_finais = []
-    for rota in rotas:
-        rotas_finais.append(rota['sequencia'])
-        seqs_finais.append([c['id'] for c in rota['clientes']])
-    custo_d = 0
-    custo_s = 0
-    for rota, seq in zip(rotas_finais, seqs_finais):
-        visitados = set()
-        for sid in seq:
-            if sid not in visitados:
-                custo_s += custo_serv_dict.get(sid, 0)
-                visitados.add(sid)
-        for u, v in zip(rota, rota[1:]):
-            if (u, v) in custos_desloc:
-                custo_d += custos_desloc[(u, v)]
-    return rotas_finais, seqs_finais, custo_d, custo_s
+def ordenar_savings(savings, rng=None):
+    if rng is not None:
+        rng.shuffle(savings)
+    else:
+        savings = sorted(savings, key=lambda x: x[1], reverse=True)
+    return savings
+
+def aplica_savings(rotas, savings, capacidade_max, tarefas, depot_node, matriz_pred):
+    for (i, j), _ in savings:
+        rota_i = next((r for r in rotas if r['tarefas'] and r['tarefas'][-1] == i), None)
+        rota_j = next((r for r in rotas if r['tarefas'] and r['tarefas'][0] == j), None)
+        if rota_i and rota_j and rota_i != rota_j:
+            if pode_fundir_rotas(rota_i, rota_j, capacidade_max):
+                nova_rota = funde_rotas(rota_i, rota_j, tarefas, depot_node, matriz_pred)
+                rotas.remove(rota_i)
+                rotas.remove(rota_j)
+                rotas.append(nova_rota)
+    return rotas
+
+def grasp_2opt_carp(v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr, iteracoes=1, max_iter_2opt=0, alpha=0.3):
+    tarefas = extrair_tarefas(nos, arestas_req, arcos_req)
+    grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
+    matriz_distancias = matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
+    matriz_pred = {u: dijkstra_pred(grafo, u)[1] for u in grafo}
+    custos_entre_tarefas = calcula_custos_entre_tarefas(tarefas, matriz_distancias)
+    rotas = inicializa_rotas(tarefas, v0, Q, matriz_pred)
+    savings = calcula_savings(tarefas, custos_entre_tarefas, matriz_distancias, v0, Q)
+    savings_ordenados = ordenar_savings(savings, rng=random)
+    rotas = aplica_savings(rotas, savings_ordenados, Q, tarefas, v0, matriz_pred)
+    # Opcional: 2-opt ou outra otimização pode ser aplicada aqui
+    return rotas, tarefas
+
+def custo_rota_especifica(rota, tarefas, matriz_distancias):
+    custo_total = 0
+    for tarefa_id in rota['tarefas']:
+        tarefa = tarefas[tarefa_id]
+        custo_total += tarefa['custo_servico']
+    rota_completa = rota['rota_completa']
+    transporte_total = 0
+    for i in range(len(rota_completa) - 1):
+        origem = rota_completa[i]
+        destino = rota_completa[i + 1]
+        transporte_total += matriz_distancias[origem][destino]
+    transporte_das_tarefas = 0
+    for tarefa_id in rota['tarefas']:
+        tarefa = tarefas[tarefa_id]
+        transporte_das_tarefas += tarefa['t_cost']
+    transporte_total -= transporte_das_tarefas
+    custo_total += transporte_total
+    return custo_total
+
+def custo_rota_real(caminho_real, servicos_map, custos_desloc, custo_serv_dict):
+    desloc_total = 0
+    desloc_tarefas = 0
+    custo_servicos = 0
+    visitados = set()
+    for i in range(len(caminho_real)-1):
+        u, v = caminho_real[i], caminho_real[i+1]
+        desloc = custos_desloc.get((u, v), 0)
+        desloc_total += desloc
+        if (u, v) in servicos_map and (u, v) not in visitados:
+            id_serv, tipo = servicos_map[(u, v)]
+            custo_servicos += custo_serv_dict.get(id_serv, 0)
+            desloc_tarefas += desloc
+            visitados.add((u, v))
+        elif (v, u) in servicos_map and (v, u) not in visitados and servicos_map[(v, u)][1] == 'e':
+            id_serv, tipo = servicos_map[(v, u)]
+            custo_servicos += custo_serv_dict.get(id_serv, 0)
+            desloc_tarefas += custos_desloc.get((v, u), 0)
+            visitados.add((v, u))
+        elif (v, v) in servicos_map and (v, v) not in visitados:
+            id_serv, tipo = servicos_map[(v, v)]
+            custo_servicos += custo_serv_dict.get(id_serv, 0)
+            visitados.add((v, v))
+    custo_rota = custo_servicos + (desloc_total - desloc_tarefas)
+    return custo_rota

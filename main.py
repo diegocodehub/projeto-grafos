@@ -1,11 +1,8 @@
-import sys
-import time
 import os
+import time
 import psutil
-from heuristica import (
-    floyd_warshall, preparar_clientes, inicializar_rotas, juntar_rotas_iterativamente, info_serv, custo_serv_dict, custos_desloc
-)
-from ler_escrever_arquivos import ler_instancia, ordenar_nomes_arquivos_solucao
+from heurística import grasp_2opt_carp, custo_serv_dict, custos_desloc, construir_grafo, dijkstra_pred, caminho_mais_curto, matriz_menores_distancias
+from ler_escrever_arquivos import ler_instancia
 
 
 def main():
@@ -13,78 +10,91 @@ def main():
     pasta_resultados = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resultados')
     os.makedirs(pasta_resultados, exist_ok=True)
     arquivos_dat = [f for f in os.listdir(pasta_testes) if f.endswith('.dat')]
-    arquivos_dat = ordenar_nomes_arquivos_solucao(arquivos_dat, pasta_testes)
-    freq_mhz = psutil.cpu_freq().current
-    freq_hz = freq_mhz * 1_000_000
     for arquivo in arquivos_dat:
         instancia = os.path.join(pasta_testes, arquivo)
-        saida = os.path.join(pasta_resultados, f"sol-{os.path.basename(instancia)}")
-        # Início do clock1 (total, tempo real em ns)
-        clock1_inicio = time.perf_counter_ns()
+        saida = os.path.join(pasta_resultados, f"sol-{os.path.splitext(os.path.basename(instancia))[0]}.dat")
         v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr = ler_instancia(instancia)
-        floyd_warshall(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-        clientes = preparar_clientes(nos, arestas_req, arcos_req)
-        rotas = inicializar_rotas(clientes, v0)
-        rotas.sort(key=lambda r: r['demanda_total'])
-        # Início do clock2 (apenas heurística, tempo real em ns)
-        clock2_inicio = time.perf_counter_ns()
-        rotas = juntar_rotas_iterativamente(rotas, custos_desloc, v0, Q)
-        clock2_fim = time.perf_counter_ns()
-        # Monta saída e calcula custos
-        rotas_finais = []
-        seqs_finais = []
-        for rota in rotas:
-            rotas_finais.append(rota['sequencia'])
-            seqs_finais.append([c['id'] for c in rota['clientes']])
-        custo_d = 0
-        custo_s = 0
-        for rota, seq in zip(rotas_finais, seqs_finais):
-            visitados = set()
-            for sid in seq:
-                if sid not in visitados:
-                    custo_s += custo_serv_dict.get(sid, 0)
-                    visitados.add(sid)
-            # Soma deslocamento apenas para trechos que NÃO são serviços
-            for i in range(len(rota) - 1):
-                u, v = rota[i], rota[i+1]
-                is_service = False
-                for sid in seq:
-                    info = info_serv.get(sid)
-                    if info is not None:
-                        _, i_s, j_s = info
-                        if (u, v) == (i_s, j_s):
-                            is_service = True
-                            break
-                if not is_service:
-                    custo_d += custos_desloc.get((u, v), 0)
-        custo_total = custo_d + custo_s
-        num_rotas = len(rotas_finais)
-        # clock1 para só antes de escrever o arquivo
-        clock1_fim = time.perf_counter_ns()
-        t_clock1 = int((clock1_fim - clock1_inicio) * (freq_hz / 1_000_000_000))
-        t_clock2 = int((clock2_fim - clock2_inicio) * (freq_hz / 1_000_000_000))
-
+        freq_mhz = psutil.cpu_freq().current
+        freq_hz = freq_mhz * 1_000_000
+        clock_inicio_total = time.perf_counter_ns()
+        melhor_custo = float('inf')
+        melhor_rotas = None
+        melhor_tarefas = None
+        total_tarefas = len(nos) + len(arestas_req) + len(arcos_req)
+        num_exec = 30 if total_tarefas <= 33 else 20 if total_tarefas <= 70 else 10
+        tempo_acumulado = 0
+        for _ in range(num_exec):
+            clock_ini_sol = time.perf_counter_ns()
+            rotas, tarefas = grasp_2opt_carp(v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr)
+            clock_fim_sol = time.perf_counter_ns()
+            clock_sol = clock_fim_sol - clock_ini_sol
+            tempo_acumulado += clock_sol
+            if rotas is None or tarefas is None:
+                continue
+            custo_total = sum([c for rota in rotas for c in [sum(tarefas[tid]['custo_servico'] for tid in rota['tarefas'])]])
+            if custo_total < melhor_custo:
+                melhor_custo = custo_total
+                melhor_rotas = rotas
+                melhor_tarefas = tarefas
+                clock_melhor_sol = tempo_acumulado
+        if melhor_rotas is None or melhor_tarefas is None:
+            print(f"NENHUMA SOLUÇÃO para {arquivo}")
+            continue
+        clock_fim_total = time.perf_counter_ns()
+        clock_total = clock_fim_total - clock_inicio_total
+        ciclos_estimados_total = int(clock_total * (freq_hz / 1_000_000_000))
+        ciclos_estimados_melhor_sol = int(clock_melhor_sol * (freq_hz / 1_000_000_000))
+        grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
+        matriz_pred = {u: dijkstra_pred(grafo, u)[1] for u in grafo}
+        from heurística import demanda_serv_dict
+        servicos_map = {}
+        id_servico = 1
+        for v, q in nos:
+            servicos_map[(v, v)] = (id_servico, 'n')
+            id_servico += 1
+        for (u, v), c, q in arestas_req:
+            servicos_map[(u, v)] = (id_servico, 'e')
+            servicos_map[(v, u)] = (id_servico, 'e')
+            id_servico += 1
+        for (u, v), c, q in arcos_req:
+            servicos_map[(u, v)] = (id_servico, 'a')
+            id_servico += 1
         with open(saida, 'w', encoding='utf-8') as f:
-            f.write(f"{custo_total}\n")
-            f.write(f"{num_rotas}\n")
-            f.write(f"{t_clock1}\n")  # clock 1: ciclos totais
-            f.write(f"{t_clock2}\n")  # clock 2: ciclos heurística
-            for rid, (rota, seq_ids) in enumerate(zip(rotas_finais, seqs_finais), start=1):
-                demanda_rota = sum(custo_serv_dict.get(sid, 0) for sid in seq_ids)
-                custo_rota = sum(custos_desloc.get((u, v), 0) for u, v in zip(rota, rota[1:])) + demanda_rota
-                num_visitas = 2 + len(seq_ids)
-
-                prefixo = f"0 1 {rid} {demanda_rota} {custo_rota} {num_visitas}"
-                detalhes = ['(D 0,1,1)']
-                for sid in seq_ids:
-                    i, j = 0, 0
-                    info = info_serv.get(sid)
-                    if info is not None:
-                        _, i, j = info
-                    detalhes.append(f"(S {sid},{i},{j})")
-                detalhes.append('(D 0,1,1)')
-
+            # Nova estrutura: lista de tarefas visitadas por rota
+            todas_tarefas = set(range(1, id_servico))
+            tarefas_atendidas = set()
+            rotas_export = []
+            custo_total_export = 0.0
+            grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
+            matriz_distancias = matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
+            for rid, rota in enumerate(melhor_rotas, start=1):
+                if not rota['tarefas']:
+                    continue
+                detalhes = [f"(D 0,{v0},{v0})"]
+                demanda_rota = 0
+                for tid in rota['tarefas']:
+                    t = melhor_tarefas[tid]
+                    detalhes.append(f"(S {t['id']},{t['origem']},{t['destino']})")
+                    demanda_rota += t['demanda']
+                    tarefas_atendidas.add(t['id'])
+                detalhes.append(f"(D 0,{v0},{v0})")
+                num_visitas = len(detalhes)
+                from heurística import custo_rota_especifica
+                custo_rota = custo_rota_especifica(rota, melhor_tarefas, matriz_distancias)
+                custo_total_export += custo_rota
+                if demanda_rota > Q:
+                    print(f"[ERRO] Demanda da rota {rid} excede a capacidade Q={Q}!")
+                rotas_export.append((rid, demanda_rota, custo_rota, num_visitas, detalhes))
+            if tarefas_atendidas != todas_tarefas:
+                print(f"[ERRO] Nem todos os serviços obrigatórios foram atendidos!")
+            f.write(f"{custo_total_export:.2f}\n")
+            f.write(f"{len(rotas_export)}\n")
+            f.write(f"{ciclos_estimados_melhor_sol}\n")
+            f.write(f"{ciclos_estimados_total}\n")
+            for rid, demanda_rota, custo_rota, num_visitas, detalhes in rotas_export:
+                prefixo = f"0 1 {rid} {demanda_rota} {custo_rota:.2f} {num_visitas}"
                 f.write(prefixo + ' ' + ' '.join(detalhes) + "\n")
+
 
 if __name__ == '__main__':
     main()
