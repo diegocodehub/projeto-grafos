@@ -5,6 +5,7 @@ from collections import defaultdict
 info_serv = {}
 custo_serv_dict = {}
 custos_desloc = {}
+demanda_serv_dict = {}
 
 
 def dijkstra(grafo, origem):
@@ -101,18 +102,15 @@ def clarke_wright(v0, Q, servicos_req, grafo):
             atual = v0
             for sid in seq:
                 _, i, j, _, _ = next(s for s in servicos_req if s[0]==sid)
-                # Garante que i e j são inteiros
                 if isinstance(i, tuple):
                     i = i[0]
                 if isinstance(j, tuple):
                     j = j[0]
-                # Caminho do atual até i
                 _, pai = dijkstra(grafo, atual)
                 caminho = reconstruir_caminho(pai, i)
                 rota += caminho[1:] if len(caminho) > 1 else []
                 rota.append(j)
                 atual = j
-            # Volta ao depósito
             _, pai = dijkstra(grafo, atual)
             caminho = reconstruir_caminho(pai, v0)
             rota += caminho[1:] if len(caminho) > 1 else []
@@ -124,14 +122,26 @@ def clarke_wright(v0, Q, servicos_req, grafo):
 def preparar_clientes(nos, arestas_req, arcos_req):
     clientes = []
     id_servico = 1
+    info_serv.clear()
+    custo_serv_dict.clear()
+    demanda_serv_dict.clear()
     for v, q in nos:
         clientes.append({'tipo': 'n', 'id': id_servico, 'origem': v, 'destino': v, 'demanda': q, 'custo': 0})
+        info_serv[id_servico] = ('n', v, v)
+        custo_serv_dict[id_servico] = 0
+        demanda_serv_dict[id_servico] = q
         id_servico += 1
     for (u, v), c, q in arestas_req:
         clientes.append({'tipo': 'e', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo': c})
+        info_serv[id_servico] = ('e', u, v)
+        custo_serv_dict[id_servico] = c
+        demanda_serv_dict[id_servico] = q
         id_servico += 1
     for (u, v), c, q in arcos_req:
         clientes.append({'tipo': 'a', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo': c})
+        info_serv[id_servico] = ('a', u, v)
+        custo_serv_dict[id_servico] = c
+        demanda_serv_dict[id_servico] = q
         id_servico += 1
     return clientes
 
@@ -202,11 +212,26 @@ def juntar_rotas_iterativamente(rotas, custos_desloc, deposito, capacidade):
                     (gain3, seq3, 'fim-fim'),
                     (gain4, seq4, 'inicio-inicio')
                 ]:
+                    # Checagem extra: garantir que a nova rota não excede capacidade
                     if gain > melhor_gain:
+                        # Calcular demanda da nova rota
+                        if tipo == 'fim-inicio':
+                            nova_clientes = rota_i['clientes'] + rota_j['clientes']
+                        elif tipo == 'inicio-fim':
+                            nova_clientes = rota_j['clientes'] + rota_i['clientes']
+                        elif tipo == 'fim-fim':
+                            nova_clientes = rota_i['clientes'] + rota_j['clientes'][::-1]
+                        elif tipo == 'inicio-inicio':
+                            nova_clientes = rota_i['clientes'][::-1] + rota_j['clientes']
+                        else:
+                            nova_clientes = rota_i['clientes'] + rota_j['clientes']
+                        nova_demanda_check = sum(c['demanda'] for c in nova_clientes)
+                        if nova_demanda_check > capacidade:
+                            continue
                         melhor_gain = gain
                         melhor_nova_rota = {
-                            'clientes': rota_i['clientes'] + rota_j['clientes'],
-                            'demanda_total': nova_demanda,
+                            'clientes': nova_clientes,
+                            'demanda_total': nova_demanda_check,
                             'servicos': rota_i['servicos'] | rota_j['servicos'],
                             'sequencia': seq
                         }
@@ -285,6 +310,8 @@ def resolver_problema(v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr):
     floyd_warshall(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
     clientes = preparar_clientes(nos, arestas_req, arcos_req)
     rotas = inicializar_rotas(clientes, v0)
+    # Ordena as rotas por demanda total (crescente) para facilitar uniões melhores
+    rotas.sort(key=lambda r: r['demanda_total'])
     rotas = juntar_rotas_iterativamente(rotas, custos_desloc, v0, Q)
     # Monta saída compatível
     rotas_finais = []

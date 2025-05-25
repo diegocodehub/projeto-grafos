@@ -7,8 +7,6 @@
 
 import numpy as np                      # Importando numpy para manipulação de matrizes
 import heapq                            # Importando heapq para implementação de fila de prioridade
-import pandas as pd                     # Importando pandas para manipulação/visualização de dados
-import matplotlib.pyplot as plt         # Importando matplotlib para visualização de dados
 
 # Declarando variável global grafo (para visualização)
 global_grafo = None

@@ -1,6 +1,7 @@
 # Funções para leitura e escrita de arquivos do projeto CARP
 import os
 import csv
+import re
 
 def ler_instancia(caminho):
     """
@@ -110,3 +111,34 @@ def ler_estatisticas_csv(caminho):
 def ler_intermediacao_csv(caminho):
     import pandas as pd
     return pd.read_csv(caminho)
+
+def natural_keys(text):
+    # Divide em partes numéricas e não numéricas para ordenação natural
+    return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', text)]
+
+def ordenar_nomes_arquivos_solucao(nomes_arquivos, pasta_testes):
+    """
+    Ordena a lista de nomes de arquivos de solução conforme a ordem dos arquivos .dat na pasta de testes.
+    """
+    arquivos_dat = [f for f in os.listdir(pasta_testes) if f.endswith('.dat')]
+    def prioridade(nome):
+        base = os.path.splitext(nome)[0]
+        if base.startswith('BHW'):
+            return (0, natural_keys(base))
+        if base.startswith('CBMix'):
+            return (1, natural_keys(base))
+        if base.startswith('DI-NEARP'):
+            return (2, natural_keys(base))
+        if base.startswith('mggdb'):
+            return (3, natural_keys(base))
+        if base.startswith('mgval'):
+            return (4, natural_keys(base))
+        return (5, natural_keys(base))
+    ordem = [os.path.splitext(f)[0] for f in sorted(arquivos_dat, key=prioridade)]
+    def pos(nome):
+        base = os.path.splitext(os.path.basename(nome))[0].replace('sol-', '')
+        try:
+            return ordem.index(base)
+        except ValueError:
+            return len(ordem)
+    return sorted(nomes_arquivos, key=pos)
