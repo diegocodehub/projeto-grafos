@@ -5,7 +5,7 @@ Realiza a leitura da instância, execução da heurística Clarke & Wright e gra
 import os
 import psutil
 import time
-from heuristica import algoritmo_clarke_wright, salvar_solucao, iterated_local_search, iterated_local_search_optimized
+from heuristica import algoritmo_clarke_wright, salvar_solucao, iterated_local_search_optimized
 from ler_escrever_arquivos import ler_instancia
 import numpy as np
 
