@@ -1,209 +1,330 @@
-import random
-from collections import defaultdict
-import heapq
-
-def extrair_tarefas(nos, arestas_req, arcos_req):
-    tarefas = []
-    id_servico = 1
-    for v, q in nos:
-        tarefas.append({'tipo': 'vertice', 'id': id_servico, 'origem': v, 'destino': v, 'demanda': q, 'custo_servico': 0, 't_cost': 0})
-        id_servico += 1
-    for (u, v), c, q in arestas_req:
-        tarefas.append({'tipo': 'edge', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo_servico': c, 't_cost': c})
-        id_servico += 1
-    for (u, v), c, q in arcos_req:
-        tarefas.append({'tipo': 'arc', 'id': id_servico, 'origem': u, 'destino': v, 'demanda': q, 'custo_servico': c, 't_cost': c})
-        id_servico += 1
-    return tarefas
-
-def construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr):
-    grafo = defaultdict(list)
-    for v, _ in nos:
-        grafo[v] = []
-    for (u, v), c, *_ in arestas_req + arestas_nr:
-        grafo[u].append((v, c))
-        grafo[v].append((u, c))
-    for (u, v), c, *_ in arcos_req + arcos_nr:
-        grafo[u].append((v, c))
-    return grafo
-
-def dijkstra_pred(grafo, origem):
-    dist = defaultdict(lambda: float('inf'))
-    pred = {}
-    dist[origem] = 0
-    heap = [(0, origem)]
-    while heap:
-        d, u = heapq.heappop(heap)
-        if d > dist[u]:
-            continue
-        for v, custo in grafo[u]:
-            if dist[v] > d + custo:
-                dist[v] = d + custo
-                pred[v] = u
-                heapq.heappush(heap, (dist[v], v))
-    return dist, pred
-
-def caminho_mais_curto(pred, origem, destino):
-    if origem == destino:
-        return [origem]
-    caminho = [destino]
-    atual = destino
-    while atual != origem:
-        atual = pred.get(atual)
-        if atual is None:
-            return []
-        caminho.append(atual)
-    return list(reversed(caminho))
-
-def matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr):
-    grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-    vertices = set(grafo.keys())
-    matriz = {u: {v: float('inf') for v in vertices} for u in vertices}
-    for u in vertices:
-        matriz[u][u] = 0
-    for u in vertices:
-        dist, _ = dijkstra_pred(grafo, u)
-        for v in vertices:
-            matriz[u][v] = dist[v]
-    return matriz
-
-def calcula_custos_entre_tarefas(tarefas, matriz_distancias):
-    custos = {}
-    for i, t1 in enumerate(tarefas):
-        for j, t2 in enumerate(tarefas):
-            if i == j:
-                continue
-            origem_t1 = t1['destino'] if t1['tipo'] != 'vertice' else t1['origem']
-            destino_t2 = t2['origem']
-            custo = matriz_distancias[origem_t1][destino_t2] + t1['custo_servico'] + t2['custo_servico']
-            custos[(i, j)] = custo
-    return custos
-
-def construir_rota_completa(tarefas, tarefa_indices, depot_node, matriz_pred):
-    rota = [depot_node]
-    for i, idx in enumerate(tarefa_indices):
-        tarefa = tarefas[idx]
-        origem = tarefa['origem']
-        if i == 0:
-            rota += caminho_mais_curto(matriz_pred[rota[-1]], rota[-1], origem)[1:]
-        else:
-            anterior = tarefas[tarefa_indices[i - 1]]
-            ultimo = anterior['destino'] if anterior['tipo'] != 'vertice' else anterior['origem']
-            rota += caminho_mais_curto(matriz_pred[ultimo], ultimo, origem)[1:]
-        if tarefa['tipo'] == 'vertice':
-            pass
-        else:
-            rota.append(tarefa['destino'])
-    ultimo = tarefas[tarefa_indices[-1]]
-    fim = ultimo['destino'] if ultimo['tipo'] != 'vertice' else ultimo['origem']
-    rota += caminho_mais_curto(matriz_pred[fim], fim, depot_node)[1:]
-    return rota
-
-def inicializa_rotas(tarefas, depot_node, capacity, matriz_pred):
+def construir_rotas_iniciais(servicos, deposito, matriz_distancias, capacidade):
     rotas = []
-    for idx, tarefa in enumerate(tarefas):
-        if tarefa['demanda'] > capacity:
-            continue
-        rota_completa = construir_rota_completa(tarefas, [idx], depot_node, matriz_pred)
-        rotas.append({'tarefas': [idx], 'demanda': tarefa['demanda'], 'rota_completa': rota_completa})
-    return rotas
+    demandas = []
+    for serv in servicos:
+        demanda = serv['demanda']
+        if demanda > capacidade:
+            raise ValueError(f"Serviço {serv['id_servico']} demanda maior que capacidade do veículo!")
+        rotas.append([serv])
+        demandas.append(demanda)
+    return rotas, demandas
 
-def pode_fundir_rotas(rota_i, rota_j, capacidade_max):
-    return (rota_i['demanda'] + rota_j['demanda']) <= capacidade_max
-
-def funde_rotas(rota_i, rota_j, tarefas, depot_node, matriz_pred):
-    nova_tarefas = rota_i['tarefas'] + rota_j['tarefas']
-    nova_demanda = rota_i['demanda'] + rota_j['demanda']
-    nova_rota = construir_rota_completa(tarefas, nova_tarefas, depot_node, matriz_pred)
-    return {'tarefas': nova_tarefas, 'demanda': nova_demanda, 'rota_completa': nova_rota}
-
-def calcula_savings(tarefas, custos_entre_tarefas, matriz_distancias, deposito, capacidade_max):
+def calcular_savings(rotas, matriz_distancias, deposito):
     savings = []
-    for i, t1 in enumerate(tarefas):
-        for j, t2 in enumerate(tarefas):
+    n = len(rotas)
+    for i in range(n):
+        serv_i = rotas[i][0]
+        origem_i = serv_i['origem']
+        destino_i = serv_i['destino']
+
+        for j in range(i+1, n):
+            serv_j = rotas[j][0]
+            origem_j = serv_j['origem']
+            destino_j = serv_j['destino']
+
+            s = (matriz_distancias[deposito][origem_i] +
+                 matriz_distancias[destino_j][deposito] -
+                 matriz_distancias[destino_i][origem_j])
+            savings.append((s, i, j))
+    savings.sort(key=lambda x: x[0], reverse=True)
+    return savings
+
+def tentar_fundir_rotas(rotas, demandas, idx_i, idx_j, capacidade):
+    rota_i = rotas[idx_i]
+    rota_j = rotas[idx_j]
+
+    demanda_total = demandas[idx_i] + demandas[idx_j]
+    if demanda_total > capacidade:
+        return False
+
+    ids_i = set(s['id_servico'] for s in rota_i)
+    ids_j = set(s['id_servico'] for s in rota_j)
+
+    if ids_i.intersection(ids_j):
+        return False
+
+    rotas[idx_i] = rota_i + rota_j
+    demandas[idx_i] = demanda_total
+
+    rotas[idx_j] = []
+    demandas[idx_j] = 0
+    return True
+
+
+
+def algoritmo_clarke_wright(servicos, deposito, matriz_distancias, capacidade):
+    rotas, demandas = construir_rotas_iniciais(servicos, deposito, matriz_distancias, capacidade)
+    savings = calcular_savings(rotas, matriz_distancias, deposito)
+
+    for s, i, j in savings:
+        if rotas[i] and rotas[j]:
+            tentar_fundir_rotas(rotas, demandas, i, j, capacidade)
+
+    # Remove rotas vazias
+    rotas = [r for r in rotas if r]
+    return rotas
+def salvar_solucao(
+    nome_arquivo,
+    rotas,
+    matriz_distancias,
+    deposito=0,
+    tempo_referencia_execucao=0,
+    tempo_referencia_solucao=0
+):
+    custo_total_solucao = 0
+    total_rotas = len(rotas)
+    linhas_rotas = []
+
+    for idx_rota, rota in enumerate(rotas, start=1):
+        servicos_unicos = {}
+        demanda_rota = 0
+        custo_servico_rota = 0
+        custo_transporte_rota = 0
+
+        destinos = []
+        for serv in rota:
+            id_s = serv["id_servico"]
+            if id_s not in servicos_unicos:
+                servicos_unicos[id_s] = serv
+                demanda_rota += serv["demanda"]
+                custo_servico_rota += serv["custo_servico"]
+            destinos.append(serv["destino"])
+
+        if destinos:
+            custo_transporte_rota += matriz_distancias[deposito][destinos[0]]
+            for i in range(len(destinos) - 1):
+                custo_transporte_rota += matriz_distancias[destinos[i]][destinos[i + 1]]
+            custo_transporte_rota += matriz_distancias[destinos[-1]][deposito]
+
+        custo_rota = custo_servico_rota + custo_transporte_rota
+        custo_total_solucao += custo_rota
+
+        total_visitas = 2 + len(servicos_unicos)
+
+        linha = f"0 1 {idx_rota} {demanda_rota} {custo_rota} {total_visitas} (D {deposito},1,1)"
+
+        servicos_impressos = set()
+        for serv in rota:
+            id_s = serv["id_servico"]
+            if id_s in servicos_impressos:
+                continue
+            servicos_impressos.add(id_s)
+            linha += f" (S {id_s},{serv['origem']},{serv['destino']})"
+
+        linha += f" (D {deposito},1,1)"
+        linhas_rotas.append(linha)
+
+    with open(nome_arquivo, "w", encoding="utf-8") as f:
+        f.write(f"{custo_total_solucao}\n")
+        f.write(f"{total_rotas}\n")
+        f.write(f"{tempo_referencia_execucao}\n")
+        f.write(f"{tempo_referencia_solucao}\n")
+        for linha in linhas_rotas:
+            f.write(linha + "\n")
+
+    print(f"Solução salva em '{nome_arquivo}' com {total_rotas} rotas e custo total {custo_total_solucao}.")
+import random
+import copy
+
+def two_opt(route, distance_matrix, deposit, max_iter=10):
+    if len(route) < 3:
+        return route, False
+    best = route[:]
+    improved = False
+    best_cost = route_cost(route, distance_matrix, deposit)
+    count = 0
+    while count < max_iter:
+        found = False
+        for i in range(1, len(best) - 1):
+            for j in range(i + 1, len(best)):
+                new_route = best[:i] + best[i:j][::-1] + best[j:]
+                new_cost = route_cost(new_route, distance_matrix, deposit)
+                if new_cost < best_cost:
+                    best = new_route
+                    best_cost = new_cost
+                    improved = True
+                    found = True
+        if not found:
+            break
+        count += 1
+    return best, improved
+
+def route_cost(route, distance_matrix, deposit):
+    if not route:
+        return 0
+    cost = distance_matrix[deposit][route[0]['origem']]
+    for i in range(len(route) - 1):
+        cost += distance_matrix[route[i]['destino']][route[i+1]['origem']]
+    cost += distance_matrix[route[-1]['destino']][deposit]
+    cost += sum(s['custo_servico'] for s in route)
+    return cost
+
+def reallocation(routes, demands, capacity, distance_matrix, deposit):
+    best_routes = copy.deepcopy(routes)
+    best_demands = demands[:]
+    best_cost = sum(route_cost(r, distance_matrix, deposit) for r in routes)
+    improved = False
+    for i, route_from in enumerate(routes):
+        for j, route_to in enumerate(routes):
+            if i == j or not route_from:
+                continue
+            for idx, serv in enumerate(route_from):
+                if demands[j] + serv['demanda'] <= capacity:
+                    new_routes = copy.deepcopy(routes)
+                    new_demands = demands[:]
+                    new_routes[j].append(serv)
+                    new_demands[j] += serv['demanda']
+                    del new_routes[i][idx]
+                    new_demands[i] -= serv['demanda']
+                    if not new_routes[i]:
+                        continue
+                    new_cost = sum(route_cost(r, distance_matrix, deposit) for r in new_routes)
+                    if new_cost < best_cost:
+                        best_routes = new_routes
+                        best_demands = new_demands
+                        best_cost = new_cost
+                        improved = True
+    return best_routes, best_demands, improved
+
+def swap(routes, demands, capacity, distance_matrix, deposit):
+    best_routes = copy.deepcopy(routes)
+    best_demands = demands[:]
+    best_cost = sum(route_cost(r, distance_matrix, deposit) for r in routes)
+    improved = False
+    for i, route_a in enumerate(routes):
+        for j, route_b in enumerate(routes):
             if i >= j:
                 continue
-            if (t1['demanda'] + t2['demanda']) > capacidade_max:
-                continue
-            custo_i0 = matriz_distancias[deposito][t1['origem']]
-            custo_0j = matriz_distancias[t2['destino']][deposito] if t2['tipo'] != 'vertice' else matriz_distancias[t2['origem']][deposito]
-            saving = custo_i0 + custo_0j - custos_entre_tarefas[(i, j)]
-            savings.append(((i, j), saving))
-    return savings
+            for idx_a, serv_a in enumerate(route_a):
+                for idx_b, serv_b in enumerate(route_b):
+                    if (demands[i] - serv_a['demanda'] + serv_b['demanda'] <= capacity and
+                        demands[j] - serv_b['demanda'] + serv_a['demanda'] <= capacity):
+                        new_routes = copy.deepcopy(routes)
+                        new_demands = demands[:]
+                        new_routes[i][idx_a], new_routes[j][idx_b] = new_routes[j][idx_b], new_routes[i][idx_a]
+                        new_demands[i] = new_demands[i] - serv_a['demanda'] + serv_b['demanda']
+                        new_demands[j] = new_demands[j] - serv_b['demanda'] + serv_a['demanda']
+                        new_cost = sum(route_cost(r, distance_matrix, deposit) for r in new_routes)
+                        if new_cost < best_cost:
+                            best_routes = new_routes
+                            best_demands = new_demands
+                            best_cost = new_cost
+                            improved = True
+    return best_routes, best_demands, improved
 
-def ordenar_savings(savings, rng=None):
-    if rng is not None:
-        rng.shuffle(savings)
-    else:
-        savings = sorted(savings, key=lambda x: x[1], reverse=True)
-    return savings
+def random_perturbation(routes, demands, capacity):
+    routes = copy.deepcopy(routes)
+    demands = demands[:]
+    non_empty = [i for i, r in enumerate(routes) if r]
+    if len(non_empty) < 2:
+        return routes, demands
+    i, j = random.sample(non_empty, 2)
+    if not routes[i]:
+        return routes, demands
+    idx = random.randrange(len(routes[i]))
+    serv = routes[i][idx]
+    if demands[j] + serv['demanda'] <= capacity:
+        routes[j].append(serv)
+        demands[j] += serv['demanda']
+        del routes[i][idx]
+        demands[i] -= serv['demanda']
+    return routes, demands
 
-def aplica_savings(rotas, savings, capacidade_max, tarefas, depot_node, matriz_pred):
-    for (i, j), _ in savings:
-        rota_i = next((r for r in rotas if r['tarefas'] and r['tarefas'][-1] == i), None)
-        rota_j = next((r for r in rotas if r['tarefas'] and r['tarefas'][0] == j), None)
-        if rota_i and rota_j and rota_i != rota_j:
-            if pode_fundir_rotas(rota_i, rota_j, capacidade_max):
-                nova_rota = funde_rotas(rota_i, rota_j, tarefas, depot_node, matriz_pred)
-                rotas.remove(rota_i)
-                rotas.remove(rota_j)
-                rotas.append(nova_rota)
-    return rotas
+def iterated_local_search(initial_routes, demands, capacity, distance_matrix, deposit, iterations=50):
+    best_routes = copy.deepcopy(initial_routes)
+    best_demands = demands[:]
+    best_cost = sum(route_cost(r, distance_matrix, deposit) for r in best_routes)
+    current_routes = copy.deepcopy(initial_routes)
+    current_demands = demands[:]
+    for _ in range(iterations):
+        # Local search: 2-opt
+        for i, route in enumerate(current_routes):
+            improved = True
+            inner = 0
+            while improved and inner < 10:
+                new_route, improved = two_opt(route, distance_matrix, deposit)
+                if improved:
+                    current_routes[i] = new_route
+                inner += 1
+        # Local search: reallocation
+        current_routes, current_demands, improved = reallocation(current_routes, current_demands, capacity, distance_matrix, deposit)
+        # Local search: swap
+        current_routes, current_demands, improved = swap(current_routes, current_demands, capacity, distance_matrix, deposit)
+        # Evaluate
+        current_cost = sum(route_cost(r, distance_matrix, deposit) for r in current_routes)
+        if current_cost < best_cost:
+            best_routes = copy.deepcopy(current_routes)
+            best_demands = current_demands[:]
+            best_cost = current_cost
+        # Perturbation
+        current_routes, current_demands = random_perturbation(current_routes, current_demands, capacity)
+    return best_routes, best_demands
 
-def grasp_2opt_carp(v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr, iteracoes=1, max_iter_2opt=0, alpha=0.3):
-    tarefas = extrair_tarefas(nos, arestas_req, arcos_req)
-    grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-    matriz_distancias = matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-    matriz_pred = {u: dijkstra_pred(grafo, u)[1] for u in grafo}
-    custos_entre_tarefas = calcula_custos_entre_tarefas(tarefas, matriz_distancias)
-    rotas = inicializa_rotas(tarefas, v0, Q, matriz_pred)
-    savings = calcula_savings(tarefas, custos_entre_tarefas, matriz_distancias, v0, Q)
-    savings_ordenados = ordenar_savings(savings, rng=random)
-    rotas = aplica_savings(rotas, savings_ordenados, Q, tarefas, v0, matriz_pred)
-    # Opcional: 2-opt ou outra otimização pode ser aplicada aqui
-    return rotas, tarefas
+def two_opt_simple(route, distance_matrix, depot):
+    if len(route) < 3:
+        return route
+    best = route[:]
+    best_cost = route_cost(best, distance_matrix, depot)
+    improved = True
+    while improved:
+        improved = False
+        for i in range(1, len(best) - 1):
+            for j in range(i + 1, len(best)):
+                new_route = best[:i] + best[i:j][::-1] + best[j:]
+                new_cost = route_cost(new_route, distance_matrix, depot)
+                if new_cost < best_cost:
+                    best = new_route
+                    best_cost = new_cost
+                    improved = True
+        if improved:
+            break
+    return best
 
-def custo_rota_especifica(rota, tarefas, matriz_distancias):
-    custo_total = 0
-    for tarefa_id in rota['tarefas']:
-        tarefa = tarefas[tarefa_id]
-        custo_total += tarefa['custo_servico']
-    rota_completa = rota['rota_completa']
-    transporte_total = 0
-    for i in range(len(rota_completa) - 1):
-        origem = rota_completa[i]
-        destino = rota_completa[i + 1]
-        transporte_total += matriz_distancias[origem][destino]
-    transporte_das_tarefas = 0
-    for tarefa_id in rota['tarefas']:
-        tarefa = tarefas[tarefa_id]
-        transporte_das_tarefas += tarefa['t_cost']
-    transporte_total -= transporte_das_tarefas
-    custo_total += transporte_total
-    return custo_total
+def total_solution_cost(routes, distance_matrix, depot):
+    return sum(route_cost(r, distance_matrix, depot) for r in routes)
 
-def custo_rota_real(caminho_real, servicos_map, custos_desloc, custo_serv_dict):
-    desloc_total = 0
-    desloc_tarefas = 0
-    custo_servicos = 0
-    visitados = set()
-    for i in range(len(caminho_real)-1):
-        u, v = caminho_real[i], caminho_real[i+1]
-        desloc = custos_desloc.get((u, v), 0)
-        desloc_total += desloc
-        if (u, v) in servicos_map and (u, v) not in visitados:
-            id_serv, tipo = servicos_map[(u, v)]
-            custo_servicos += custo_serv_dict.get(id_serv, 0)
-            desloc_tarefas += desloc
-            visitados.add((u, v))
-        elif (v, u) in servicos_map and (v, u) not in visitados and servicos_map[(v, u)][1] == 'e':
-            id_serv, tipo = servicos_map[(v, u)]
-            custo_servicos += custo_serv_dict.get(id_serv, 0)
-            desloc_tarefas += custos_desloc.get((v, u), 0)
-            visitados.add((v, u))
-        elif (v, v) in servicos_map and (v, v) not in visitados:
-            id_serv, tipo = servicos_map[(v, v)]
-            custo_servicos += custo_serv_dict.get(id_serv, 0)
-            visitados.add((v, v))
-    custo_rota = custo_servicos + (desloc_total - desloc_tarefas)
-    return custo_rota
+def perturbation(routes, capacity):
+    # Remove 2-3 random services and reinsert into other routes
+    routes = copy.deepcopy(routes)
+    all_services = [(i, idx) for i, r in enumerate(routes) for idx in range(len(r))]
+    if len(all_services) < 3:
+        return routes
+    num_remove = min(3, len(all_services))
+    remove_indices = random.sample(all_services, num_remove)
+    removed = []
+    for i, idx in sorted(remove_indices, reverse=True):
+        removed.append(routes[i][idx])
+        del routes[i][idx]
+    # Reinsert removed services into random routes (with capacity check)
+    for serv in removed:
+        possible = [i for i, r in enumerate(routes) if sum(s['demanda'] for s in r) + serv['demanda'] <= capacity]
+        if not possible:
+            # If nowhere fits, create a new route
+            routes.append([serv])
+        else:
+            i = random.choice(possible)
+            insert_pos = random.randint(0, len(routes[i]))
+            routes[i].insert(insert_pos, serv)
+    # Remove empty routes
+    routes = [r for r in routes if r]
+    return routes
+
+def iterated_local_search_optimized(servicos, distance_matrix, capacity, depot, iterations=30):
+    from heuristica import algoritmo_clarke_wright
+    # Initial solution
+    routes = algoritmo_clarke_wright(servicos, depot, distance_matrix, capacity)
+    # 2-opt on each route
+    routes = [two_opt_simple(r, distance_matrix, depot) for r in routes]
+    best_routes = copy.deepcopy(routes)
+    best_cost = total_solution_cost(best_routes, distance_matrix, depot)
+    for _ in range(min(iterations, 10)):
+        # Perturbation
+        perturbed = perturbation(routes, capacity)
+        # 2-opt on perturbed solution
+        perturbed = [two_opt_simple(r, distance_matrix, depot) for r in perturbed]
+        cost = total_solution_cost(perturbed, distance_matrix, depot)
+        if cost < best_cost:
+            best_routes = copy.deepcopy(perturbed)
+            best_cost = cost
+        routes = copy.deepcopy(perturbed)
+    return best_routes
