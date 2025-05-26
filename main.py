@@ -42,7 +42,7 @@ def matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
 
 
 def main():
-    pasta_testes = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'testes')
+    pasta_testes = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instancias')
     pasta_resultados = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resultados')
     os.makedirs(pasta_resultados, exist_ok=True)
     arquivos_dat = [f for f in os.listdir(pasta_testes) if f.endswith('.dat')]

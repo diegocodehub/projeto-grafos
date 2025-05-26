@@ -45,7 +45,7 @@ def matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
 
 def teste_unitario_rodar_uma_instancia():
     nome = input('Digite o nome do arquivo .dat (ex: BHW1.dat): ').strip()
-    pasta_testes = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'testes')
+    pasta_testes = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instancias')
     pasta_resultados = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resultados')
     os.makedirs(pasta_resultados, exist_ok=True)
     arquivo = os.path.join(pasta_testes, nome)

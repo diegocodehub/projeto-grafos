@@ -12,14 +12,15 @@ O objetivo é processar instâncias de grafos (em arquivos `.dat`), calcular rot
 
 ## Estrutura dos Arquivos e Pastas
 
-- `main.py`: Executa todas as instâncias da pasta `testes/`, identifica automaticamente se o grafo é pequeno (≤ 100 serviços) ou grande (> 100 serviços) e escolhe a abordagem adequada:
+- `main.py`: Executa todas as instâncias da pasta `instancias/`, identifica automaticamente se o grafo é pequeno (≤ 100 serviços) ou grande (> 100 serviços) e escolhe a abordagem adequada:
   - Pequeno: usa a metaheurística otimizada (ILS)
   - Grande: usa apenas Clarke & Wright
+  - O nome do arquivo de saída indica o método: `-ils.dat` (ILS) ou `-cw.dat` (Clarke & Wright)
 - `testes_unitarios.py`: Permite rodar e validar uma instância específica, útil para depuração e análise detalhada. Também identifica automaticamente o tipo de grafo e salva o resultado com o sufixo correspondente.
 - `heuristica.py`: Implementa as heurísticas e metaheurísticas (Clarke & Wright, ILS, operadores locais, etc).
 - `ler_escrever_arquivos.py`: Funções para leitura das instâncias e utilidades de entrada/saída.
 - `resultados/`: Pasta onde as soluções geradas são salvas automaticamente, uma para cada instância processada. O nome do arquivo indica o método utilizado (`-ils.dat` ou `-cw.dat`).
-- `testes/`: Pasta com as instâncias do problema no formato `.dat`.
+- `instancias/`: Pasta com as instâncias do problema no formato `.dat`.
 - `visualizar.ipynb`: Notebook para visualizar graficamente as soluções salvas em `resultados/`.
 
 ---
@@ -40,7 +41,7 @@ pip install numpy psutil
 
 ### 2. Gerar Soluções para Todas as Instâncias
 
-Coloque os arquivos `.dat` das instâncias na pasta `testes/`.
+Coloque os arquivos `.dat` das instâncias na pasta `instancias/`.
 Execute:
 
 ```powershell
@@ -81,7 +82,7 @@ Abra o notebook `visualizar.ipynb` no Jupyter ou VSCode. Siga as instruções do
 ### Entrada (`.dat`)
 
 - Arquivos `.dat` devem seguir o padrão de instâncias CARP, com campos separados por TAB e blocos para nós, arestas, arcos e demandas.
-- Veja exemplos na pasta `testes/`.
+- Veja exemplos na pasta `instancias/`.
 
 ### Saída (`resultados/`)
 
@@ -90,7 +91,6 @@ Abra o notebook `visualizar.ipynb` no Jupyter ou VSCode. Siga as instruções do
   - Total de rotas
   - Tempos de referência de execução e solução
   - Descrição detalhada das rotas
-- O nome do arquivo indica o método utilizado (`-ils.dat` ou `-cw.dat`).
 
 Exemplo de saída:
 
@@ -115,4 +115,4 @@ Exemplo de saída:
 
 ---
 
-Para dúvidas ou sugestões, consulte o código-fonte ou entre em contato com o autor.
+Para dúvidas ou sugestões, consulte o código-fonte ou entre em contato com os autores.
