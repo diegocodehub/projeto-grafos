@@ -1,97 +1,77 @@
-# Análise e Processamento de Grafos a partir de Arquivos `.dat`
+# Projeto: GRAFOS - Roteamento de Serviços em Grafos
 
-Este projeto em Python foi desenvolvido com o objetivo de **ler, modelar e analisar estruturas de grafos complexos**, extraídos a partir de arquivos `.dat`. A partir do grafo construído, o código realiza o **cálculo de métricas importantes** da Teoria dos Grafos.
+Este projeto resolve o problema de roteamento de serviços em grafos (CARP - Capacitated Arc Routing Problem) utilizando heurísticas e metaheurísticas avançadas, com foco em eficiência e robustez. O código lê instâncias do problema a partir de arquivos `.dat`, gera soluções otimizadas e permite análise e visualização dos resultados.
 
-## Funcionalidades
+## Funcionalidades Principais
 
-- **Leitura estruturada de arquivos `.dat`** leitura de vértices, arestas, arcos e demandas;
-- Construção de um **grafo representado como matriz de adjacência (usando `numpy`)**;
-- **Cálculo da densidade do grafo** considerando ligações direcionadas e bidirecionais;
-- **Cálculo de graus dos vértices**, cálculo do grau mínimo e máximo dos vértices;
-- **Escolha adaptativa entre os algoritmos de Dijkstra e Floyd-Warshall** com base na densidade do grafo;
-- **Cálculo do diâmetro do grafo** e do **caminho médio** entre os pares de vértices;
-- **Reconstrução de caminhos mínimos** entre pares de vértices;
-- **Cálculo da intermediação dos vértices** quantas vezes um vértice aparece em caminhos mínimos entre todos os pares.
+- **Leitura estruturada de instâncias** a partir de arquivos `.dat` (pasta `testes/`).
+- **Construção do grafo** como matriz de adjacência (usando `numpy`).
+- **Geração de soluções** usando a heurística de Clarke & Wright e uma metaheurística Iterated Local Search (ILS) otimizada.
+- **Exportação automática das soluções** para a pasta `resultados/`.
+- **Testes unitários** para validação das soluções e desempenho.
+- **Notebook de visualização** (`visualizar.ipynb`) para análise gráfica das soluções geradas.
 
-## 📁 Estrutura do Código
+## Estrutura do Projeto
 
-- `ler_arquivo()`: Realiza o parsing detalhado do arquivo `.dat` e extrai todas as estruturas relevantes do grafo.
-- `densidade()`: Calcula a densidade do grafo considerando arcos e arestas.
-- `calcula_graus()`: Analisa os graus dos vértices em diferentes perspectivas.
-- `dijkstra()` / `floyd_warshall()`: Implementações clássicas para o cálculo de caminhos mínimos.
-- `caminho_medio()` e `diametro()`: Métricas globais de conectividade.
-- `reconstruir_caminho()`: Recompõe um caminho mínimo usando predecessores.
-- `calcula_intermediacao()`: Mede a importância dos vértices como intermediários em caminhos mínimos.
-- `main()`: Interface principal com o usuário, leitura do arquivo e chamada dos cálculos.
+- `main.py`: Executa todas as instâncias da pasta `testes/`, gera e salva as soluções otimizadas na pasta `resultados/`.
+- `testes_unitarios.py`: Permite rodar e validar uma instância específica, útil para depuração e análise detalhada.
+- `heuristica.py`: Implementa as heurísticas e metaheurísticas (Clarke & Wright, ILS, operadores locais, etc).
+- `ler_escrever_arquivos.py`: Funções para leitura das instâncias e utilidades de entrada/saída.
+- `resultados/`: Pasta onde as soluções geradas são salvas automaticamente.
+- `testes/`: Pasta com as instâncias do problema no formato `.dat`.
+- `visualizar.ipynb`: Notebook para visualizar graficamente as soluções salvas em `resultados/`.
 
-## 🛠️ Requisitos
+## Como Usar
+
+### 1. Gerar Soluções para Todas as Instâncias
+
+Coloque os arquivos `.dat` das instâncias na pasta `testes/`.
+Execute:
+
+```bash
+python main.py
+```
+
+As soluções serão salvas automaticamente na pasta `resultados/` com o prefixo `sol-`.
+
+### 2. Rodar Teste Unitário em Uma Instância
+
+Execute:
+
+```bash
+python testes_unitarios.py
+```
+
+Digite o nome do arquivo `.dat` desejado (ex: `BHW1.dat`) quando solicitado. O resultado será salvo em `resultados/` e exibido no terminal.
+
+### 3. Visualizar Soluções Geradas
+
+Abra o notebook `visualizar.ipynb` no Jupyter ou VSCode. Siga as instruções do notebook para carregar e visualizar graficamente as soluções da pasta `resultados/`.
+
+## Sobre as Pastas
+
+- **`testes/`**: Instâncias do problema (arquivos `.dat`).
+- **`resultados/`**: Soluções geradas automaticamente pelo código, uma para cada instância.
+
+## Requisitos
 
 - Python 3.7+
-- Bibliotecas:
-  - `numpy`
-  - `heapq` (padrão do Python)
+- numpy
+- psutil
 
 Instale as dependências com:
 
 ```bash
-pip install numpy
-```
-## Como usar
-
-1. Coloque o arquivo `.dat` contendo a definição do grafo no mesmo diretório do script.
-2. Execute o script principal com:
-
-```bash
-python projeto1.py
+pip install numpy psutil
 ```
 
-3. Siga as instruções no terminal:
-   - Insira o nome do arquivo `.dat` quando solicitado.
-   - O programa realizará a leitura e o processamento dos dados.
-   - As métricas e estatísticas do grafo serão exibidas em sequência.
+## Observações
 
-## 📊 Exemplo de Saída
+- O código utiliza uma metaheurística robusta (ILS) baseada em Clarke & Wright, com busca local e perturbação, garantindo soluções de alta qualidade.
+- O notebook de visualização facilita a análise gráfica dos resultados.
+- Os testes unitários permitem validar rapidamente o funcionamento para qualquer instância.
+- As soluções são exportadas no formato esperado para avaliação ou uso posterior.
 
-```bash
-Digite o nome do arquivo (ex: nome_arquivo.dat):
+---
 
-- ESTATÍSTICAS BÁSICAS DO GRAFO:
-- Quantidade de vértices: 12
-- Quantidade de arestas: 11
-- Quantidade de arcos: 22
-- Quantidade de vértices requeridos: 7
-- Quantidade de arestas requeridas: 11
-- Quantidade de arcos requeridos: 11
-- Densidade do grafo: 0.1667
-- Grau total mínimo: 4
-- Grau total máximo: 3
-- Caminho médio: 16.7121
-- Diâmetro do grafo: 30
-
-- INTERMEDIAÇÃO DOS VÉRTICES:
-- Vértice 1: 18
-- Vértice 2: 22
-- Vértice 3: 6
-- Vértice 4: 0
-- Vértice 5: 14
-- Vértice 6: 38
-- Vértice 7: 22
-- Vértice 8: 16
-- Vértice 9: 14
-- Vértice 10: 6
-- Vértice 11: 0
-- Vértice 12: 22
-```
-
-## Estratégia de Escolha do Algoritmo
-
-O algoritmo de caminhos mínimos é escolhido com base na **densidade do grafo**:
-
-- Se a densidade for **maior que 0.5**, utiliza-se **Floyd-Warshall**, eficiente para grafos densos.
-- Caso contrário, aplica-se **Dijkstra com fila de prioridade**, ideal para grafos esparsos.
-
-## Observações Adicionais
-
-- A reconstrução dos caminhos mínimos requer a matriz de predecessores calculada durante os algoritmos.
-- Apenas pesos positivos são considerados nos arcos e arestas.
-- A centralidade de intermediação pode demandar tempo significativo em grafos grandes, pois envolve a análise de todos os pares de vértices.
+Para dúvidas ou sugestões, consulte o código-fonte ou entre em contato com o autor.
