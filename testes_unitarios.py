@@ -52,7 +52,7 @@ def teste_unitario_rodar_uma_instancia():
     if not os.path.exists(arquivo):
         print(f"Arquivo {arquivo} não encontrado!")
         return
-    saida = os.path.join(pasta_resultados, f"sol-{os.path.splitext(os.path.basename(arquivo))[0]}.dat")
+    saida_base = os.path.join(pasta_resultados, f"sol-{os.path.splitext(os.path.basename(arquivo))[0]}")
     v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr = ler_instancia(arquivo)
     # Montar lista de serviços obrigatórios
     servicos = []
@@ -89,25 +89,30 @@ def teste_unitario_rodar_uma_instancia():
     clock_inicio_total = time.perf_counter_ns()
     grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
     matriz_distancias = matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-    # Executar metaheurística otimizada
     clock_ini_sol = time.perf_counter_ns()
-    rotas = iterated_local_search_optimized(servicos, matriz_distancias, Q, v0, iterations=30)
+    if len(servicos) > 100:
+        # Grafo grande: apenas Clarke & Wright
+        rotas = algoritmo_clarke_wright(servicos, v0, matriz_distancias, Q)
+        nome_saida = saida_base + ".dat"
+    else:
+        # Grafo pequeno: metaheurística otimizada
+        rotas = iterated_local_search_optimized(servicos, matriz_distancias, Q, v0, iterations=30)
+        nome_saida = saida_base + ".dat"
     clock_fim_sol = time.perf_counter_ns()
     clock_sol = clock_fim_sol - clock_ini_sol
     clock_fim_total = time.perf_counter_ns()
     clock_total = clock_fim_total - clock_inicio_total
     ciclos_estimados_total = int(clock_total * (freq_hz / 1_000_000_000))
     ciclos_estimados_melhor_sol = int(clock_sol * (freq_hz / 1_000_000_000))
-    # Exportar solução usando a função da heurística
     salvar_solucao(
-        saida,
+        nome_saida,
         rotas,
         matriz_distancias,
         deposito=v0,
         tempo_referencia_execucao=ciclos_estimados_total,
         tempo_referencia_solucao=ciclos_estimados_melhor_sol
     )
-    print(f"Solução salva em {saida}")
+    print(f"Solução salva em {nome_saida}")
 
 if __name__ == '__main__':
     teste_unitario_rodar_uma_instancia()

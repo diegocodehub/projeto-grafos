@@ -48,7 +48,7 @@ def main():
     arquivos_dat = [f for f in os.listdir(pasta_testes) if f.endswith('.dat')]
     for arquivo in arquivos_dat:
         instancia = os.path.join(pasta_testes, arquivo)
-        saida = os.path.join(pasta_resultados, f"sol-{os.path.splitext(os.path.basename(instancia))[0]}.dat")
+        saida_base = os.path.join(pasta_resultados, f"sol-{os.path.splitext(os.path.basename(instancia))[0]}")
         v0, Q, arestas_req, arcos_req, nos, arestas_nr, arcos_nr = ler_instancia(instancia)
         freq_mhz = psutil.cpu_freq().current
         freq_hz = freq_mhz * 1_000_000
@@ -85,9 +85,15 @@ def main():
             id_servico += 1
         grafo = construir_grafo(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
         matriz_distancias = matriz_menores_distancias(nos, arestas_req, arcos_req, arestas_nr, arcos_nr)
-        # Executar metaheurística otimizada
         clock_ini_sol = time.perf_counter_ns()
-        rotas = iterated_local_search_optimized(servicos, matriz_distancias, Q, v0, iterations=30)
+        if len(servicos) > 100:
+            # Grafo grande: apenas Clarke & Wright
+            rotas = algoritmo_clarke_wright(servicos, v0, matriz_distancias, Q)
+            nome_saida = saida_base + ".dat"
+        else:
+            # Grafo pequeno: metaheurística otimizada
+            rotas = iterated_local_search_optimized(servicos, matriz_distancias, Q, v0, iterations=30)
+            nome_saida = saida_base + ".dat"
         clock_fim_sol = time.perf_counter_ns()
         clock_sol = clock_fim_sol - clock_ini_sol
         clock_fim_total = time.perf_counter_ns()
@@ -96,7 +102,7 @@ def main():
         ciclos_estimados_melhor_sol = int(clock_sol * (freq_hz / 1_000_000_000))
         # Exportar solução usando a função da heurística
         salvar_solucao(
-            saida,
+            nome_saida,
             rotas,
             matriz_distancias,
             deposito=v0,
