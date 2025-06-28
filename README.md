@@ -6,6 +6,7 @@ Este projeto resolve o problema de roteamento de serviços em grafos (CARP - Cap
 
 - [Descrição Geral](#descrição-geral)
 - [Estrutura do Projeto](#estrutura-do-projeto)
+- [Melhorias da Etapa 3](#melhorias-da-etapa-3)
 - [Funcionalidades](#funcionalidades)
 - [Como Executar](#como-executar)
 - [Formato dos Arquivos](#formato-dos-arquivos)
@@ -43,6 +44,18 @@ projeto-grafos/
 ├── testes_unitarios.py      # Testes unitários e execução de instâncias individuais
 └── visualizar.ipynb         # Notebook para visualização gráfica das soluções
 ```
+
+---
+
+## Melhorias da Etapa 3
+
+Da Etapa 2 para a Etapa 3, o projeto passou por diversas melhorias importantes:
+
+- **Otimização do tempo de processamento**: Utilização da biblioteca padrão do Python (`concurrent.futures`), com o módulo `ProcessPoolExecutor`, permitindo execução paralela e acelerando o processamento de múltiplas instâncias.
+- **Nova heurística para instâncias pequenas**: Implementação do método GRASP (Greedy Randomized Adaptive Search Procedure) com busca local 2-opt, melhorando significativamente os resultados para problemas com menos de 200 serviços.
+- **Organização e limpeza do código**: Remoção de funções desnecessárias ou duplicadas, como as antigas funções de criação de grafos e leitura de instâncias, tornando o código mais limpo e modular.
+- **Aprimoramento da busca local**: Aumento do número de iterações na busca local para refinar ainda mais as soluções, sem comprometer o desempenho devido à otimização do processamento.
+- **Facilidade na comparação de soluções**: Criação dos arquivos `gerar_comparacao.py` e `comparacao_solucoes.csv`, permitindo comparar automaticamente as soluções obtidas com os valores de referência de forma prática e padronizada.
 
 ---
 
