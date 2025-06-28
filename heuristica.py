@@ -213,7 +213,7 @@ def salvar_solucao(
     print(f"Solução salva em '{nome_arquivo}' com {total_rotas} rotas e custo total {custo_total_solucao}.")
 
 
-# Heurística GRASP para VRP: construção gulosa randomizada + busca local 2-opt-simple (ideal para problemas menores)
+# Heurística GRASP para VRP: construção semi-gulosa randomizada + busca local 2-opt-simple (ideal para problemas menores)
 def grasp_heuristic(servicos, distance_matrix, capacity, depot, iterations, alpha):
     best_routes = None
     best_cost = float('inf')

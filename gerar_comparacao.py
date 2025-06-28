@@ -1,7 +1,7 @@
 import os
 import csv
 from concurrent.futures import ProcessPoolExecutor
-from testes_unitarios import rodar_teste_unitario_automatico
+from testes_unitarios import processar_teste_unitario_automatico
 
 # Lista de instâncias para cada cidade (4 a fim de testar soluções)
 instancias = [
@@ -53,7 +53,7 @@ def main():
     resultados = []
     nomes_arquivos = [arq for arq, _ in instancias]
     with ProcessPoolExecutor() as executor:
-        list(executor.map(rodar_teste_unitario_automatico, nomes_arquivos))
+        list(executor.map(processar_teste_unitario_automatico, nomes_arquivos))
     for arq, nome in instancias:
         sol_ref = ref_values.get(nome, None)
         sol_obt = get_primeira_linha_resultado(nome + ".dat")

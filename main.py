@@ -48,7 +48,7 @@ def processar_instancia(arquivo, pasta_testes, pasta_resultados):
     if len(servicos) > 200: 
         rotas = iterated_local_search_optimized(servicos, matriz_distancias, Q, v0, iterations=100) # aumento do numero de perturbações para melhores resultados
     else:
-        rotas = grasp_heuristic(servicos, matriz_distancias, Q, v0, iterations=100, alpha=0.2)
+        rotas = grasp_heuristic(servicos, matriz_distancias, Q, v0, iterations=100, alpha=0.2) # nova heurística GRASP para instâncias pequenas, alpha define o quão guloso é o algoritmo
     nome_saida = saida_base + ".dat"
     clock_fim_sol = time.perf_counter_ns()
     clock_sol = clock_fim_sol - clock_ini_sol
